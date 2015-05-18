@@ -76,7 +76,7 @@ func NewChrome() *Chrome {
 	c.Identity = &Identity{o: c.o.Get("identity")}
 	c.Idle = &Idle{o: c.o.Get("idle")}
 	c.Input = NewInput(c.o.Get("input"))
-	c.Notification = &Notification{o: c.o.Get("notification")}
+	c.Notification = &Notification{o: c.o.Get("notifications")}
 	c.Omnibox = &Omnibox{o: c.o.Get("omnibox")}
 	c.PageAction = &PageAction{o: c.o.Get("pageAction")}
 	c.PageCapture = &PageCapture{o: c.o.Get("pageCapture")}
