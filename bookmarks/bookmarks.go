@@ -1,10 +1,14 @@
-package chrome
+package bookmarks
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
 
-type Bookmarks struct {
-	o *js.Object
-}
+	"github.com/gopherjs/gopherjs/js"
+)
+
+var (
+	bookmarks = chrome.Get("bookmarks")
+)
 
 /*
 * Types
@@ -28,61 +32,61 @@ type BookmarkTreeNode struct {
  */
 
 // Get retrieves the specified BookmarkTreeNode(s).
-func (b *Bookmarks) Get(idList []string, callback func(results []BookmarkTreeNode)) {
-	b.o.Call("get", idList, callback)
+func Get(idList []string, callback func(results []BookmarkTreeNode)) {
+	bookmarks.Call("get", idList, callback)
 }
 
 // GetChildren retrieves the children of the specified BookmarkTreeNode id.
-func (b *Bookmarks) GetChildren(id string, callback func(results []BookmarkTreeNode)) {
-	b.o.Call("getChildren", id, callback)
+func GetChildren(id string, callback func(results []BookmarkTreeNode)) {
+	bookmarks.Call("getChildren", id, callback)
 }
 
 // GetRecent retrieves the recently added bookmarks.
-func (b *Bookmarks) GetRecent(numberOfItems int, callback func(results []BookmarkTreeNode)) {
-	b.o.Call("getRecent", numberOfItems, callback)
+func GetRecent(numberOfItems int, callback func(results []BookmarkTreeNode)) {
+	bookmarks.Call("getRecent", numberOfItems, callback)
 }
 
 // GetTree retrieves the entire Bookmarks hierarchy.
-func (b *Bookmarks) GetTree(callback func(results []BookmarkTreeNode)) {
-	b.o.Call("getTree", callback)
+func GetTree(callback func(results []BookmarkTreeNode)) {
+	bookmarks.Call("getTree", callback)
 }
 
 // GetSubTree retrieves part of the Bookmarks hierarchy, starting at the specified node.
-func (b *Bookmarks) GetSubTree(id string, callback func(results []BookmarkTreeNode)) {
-	b.o.Call("getSubTree", id, callback)
+func GetSubTree(id string, callback func(results []BookmarkTreeNode)) {
+	bookmarks.Call("getSubTree", id, callback)
 }
 
 // Search searches for BookmarkTreeNodes matching the given query. Queries specified
 // with an object produce BookmarkTreeNodes matching all specified properties.
-func (b *Bookmarks) Search(query interface{}, callback func(results []BookmarkTreeNode)) {
-	b.o.Call("search", query, callback)
+func Search(query interface{}, callback func(results []BookmarkTreeNode)) {
+	bookmarks.Call("search", query, callback)
 }
 
 // Create creates a bookmark or folder under the specified parentId.
 // If url is nil or missing, it will be a folder.
-func (b *Bookmarks) Create(bookmark Object, callback func(result BookmarkTreeNode)) {
-	b.o.Call("create", bookmark, callback)
+func Create(bookmark Object, callback func(result BookmarkTreeNode)) {
+	bookmarks.Call("create", bookmark, callback)
 }
 
 // Move moves the specified BookmarkTreeNode to the provided location.
-func (b *Bookmarks) Move(id string, destination Object, callback func(result BookmarkTreeNode)) {
-	b.o.Call("move", id, destination, callback)
+func Move(id string, destination Object, callback func(result BookmarkTreeNode)) {
+	bookmarks.Call("move", id, destination, callback)
 }
 
 // Update updates the properties of a bookmark or folder. Specify only the properties that you want
 // to change; unspecified properties will be left unchanged. Note: Currently, only 'title' and 'url' are supported.
-func (b *Bookmarks) Update(id string, changes Object, callback func(result BookmarkTreeNode)) {
-	b.o.Call("update", id, changes, callback)
+func Update(id string, changes Object, callback func(result BookmarkTreeNode)) {
+	bookmarks.Call("update", id, changes, callback)
 }
 
 // Remove removes a bookmark or an empty bookmark folder.
-func (b *Bookmarks) Remove(id string, callback func()) {
-	b.o.Call("remove", id, callback)
+func Remove(id string, callback func()) {
+	bookmarks.Call("remove", id, callback)
 }
 
 // RemoveTree recursively removes a bookmark folder.
-func (b *Bookmarks) RemoveTree(id string, callback func()) {
-	b.o.Call("removeTree", id, callback)
+func RemoveTree(id string, callback func()) {
+	bookmarks.Call("removeTree", id, callback)
 }
 
 /*
@@ -90,39 +94,39 @@ func (b *Bookmarks) RemoveTree(id string, callback func()) {
  */
 
 // OnCreated fired when a bookmark or folder is created.
-func (b *Bookmarks) OnCreated(callback func(id string, bookmark BookmarkTreeNode)) {
-	b.o.Get("onCreated").Call("addListener", callback)
+func OnCreated(callback func(id string, bookmark BookmarkTreeNode)) {
+	bookmarks.Get("onCreated").Call("addListener", callback)
 }
 
 // OnRemoved fired when a bookmark or folder is removed. When a folder is removed recursively,
 // a single notification is fired for the folder, and none for its contents.
-func (b *Bookmarks) OnRemoved(callback func(id string, removeInfo Object)) {
-	b.o.Get("onRemoved").Call("addListener", callback)
+func OnRemoved(callback func(id string, removeInfo Object)) {
+	bookmarks.Get("onRemoved").Call("addListener", callback)
 }
 
 // onChanged fired when a bookmark or folder changes. Note: Currently, only title and url changes trigger this.
-func (b *Bookmarks) onChanged(callback func(id string, changeInfo Object)) {
-	b.o.Get("onChanged").Call("addListener", callback)
+func onChanged(callback func(id string, changeInfo Object)) {
+	bookmarks.Get("onChanged").Call("addListener", callback)
 }
 
 // OnMoved fired when a bookmark or folder is moved to a different parent folder.
-func (b *Bookmarks) OnMoved(callback func(id string, moveInfo Object)) {
-	b.o.Get("onMoved").Call("addListener", callback)
+func OnMoved(callback func(id string, moveInfo Object)) {
+	bookmarks.Get("onMoved").Call("addListener", callback)
 }
 
 // OnChildrenReordered fired when the children of a folder have changed their order due to
 // the order being sorted in the UI. This is not called as a result of a move().
-func (b *Bookmarks) OnChildrenReordered(callback func(id string, reorderInfo Object)) {
-	b.o.Get("onChildrenReordered").Call("addListener", callback)
+func OnChildrenReordered(callback func(id string, reorderInfo Object)) {
+	bookmarks.Get("onChildrenReordered").Call("addListener", callback)
 }
 
 // OnImportBegan fired when a bookmark import session is begun. Expensive observers should ignore
 // onCreated updates until onImportEnded is fired. Observers should still handle other notifications immediately.
-func (b *Bookmarks) OnImportBegan(callback func()) {
-	b.o.Get("onImportBegan").Call("addListener", callback)
+func OnImportBegan(callback func()) {
+	bookmarks.Get("onImportBegan").Call("addListener", callback)
 }
 
 // OnImportEnded fired when a bookmark import session is ended.
-func (b *Bookmarks) OnImportEnded(callback func()) {
-	b.o.Get("onImportEnded").Call("addListener", callback)
+func OnImportEnded(callback func()) {
+	bookmarks.Get("onImportEnded").Call("addListener", callback)
 }
