@@ -6,11 +6,20 @@
 </head>
 <body>
     <div>
-        <button data-bind="click: connect">Connect</button>
+       <label>IP</label><input data-bind="value: ip">    
+       <label>Port</label><input data-bind="value: port">    
+       <button data-bind="click: listen">Listen</button>
     </div>
     <div>
-        <input data-bind="value: input">    
+        <label>Message</label><input data-bind="value: input">
+    </div>
+    <div>
+        <button data-bind="click: connect">Connect</button>
         <button data-bind="click: send">Send</button>
+    </div>
+    <div>
+        <button data-bind="click: dial">Dial</button>
+        <button data-bind="click: write">Write</button>
     </div>
     <div>
         <textarea data-bind="value: output"></textarea>
@@ -20,7 +29,7 @@
     <script src="resources/jquery-2.1.1.min.js"></script>
     <script src="resources/qunit-1.14.0.js"></script>
     <script src="resources/knockout-3.3.0.min.js"></script>
-    <script type="text/javascript" src="resources/knockout-secure-binding.min.js"></script>
+    <script src="resources/knockout-secure-binding.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

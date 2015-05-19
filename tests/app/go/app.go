@@ -14,28 +14,31 @@ import (
 )
 
 var (
-	address    = "127.0.0.1"
-	port       = 8088
 	serverSock = 0
 	clientSock = 0
 
-	in  = ko.NewObservable("sending to server")
-	out = ko.NewObservable("server response")
+	ip   = ko.NewObservable("127.0.0.1")
+	port = ko.NewObservable(8088)
+	in   = ko.NewObservable("sending to server")
+	out  = ko.NewObservable("server response")
 
-	conn net.Conn
+	currentConn net.Conn
 )
 
 func appendToOut(msg string) {
 	old := out.Get().String()
 	out.Set(old + "\n" + msg)
+	println(msg)
 }
 
 func applyBindings() {
 	model := js.M{
+		"ip":     ip,
+		"port":   port,
 		"input":  in,
 		"output": out,
 		"connect": func() {
-			tcp.Connect(clientSock, address, port, func(result int) {
+			tcp.Connect(clientSock, ip.Get().String(), port.Get().Int(), func(result int) {
 				if result < 0 {
 					appendToOut("client connect failed")
 				} else {
@@ -53,21 +56,56 @@ func applyBindings() {
 				}
 			})
 		},
+		"listen": func() {
+			go func() {
+				port.Set(port.Get().Int() + 1)
+				l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", ip.Get().String(), port.Get().Int()))
+				if err != nil {
+					appendToOut("listen failed:" + err.Error())
+					return
+				}
+				appendToOut(fmt.Sprintf("listen on port: %d", port.Get().Int()))
+				for {
+					c, err := l.Accept()
+					if err != nil {
+						appendToOut("accetp error:" + err.Error())
+						continue
+					}
+					appendToOut("new conn comming:" + c.RemoteAddr().String())
+					go func(c net.Conn) {
+						for {
+							buf := make([]byte, 1024)
+							_, err := c.Read(buf)
+							if err != nil {
+								appendToOut("conn receiv err:" + err.Error())
+							} else {
+								appendToOut("conn receiv:" + string(buf))
+							}
+						}
+					}(c)
+				}
+			}()
+		},
 		"dial": func() {
 			go func() {
-				var err error
-				conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", address, port))
+				appendToOut(fmt.Sprintf("dialing %s:%d", ip.Get().String(), port.Get().Int()))
+				conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip.Get().String(), port.Get().Int()))
 				if err != nil {
 					appendToOut(err.Error())
 				} else {
-					appendToOut("chrome conn created")
+					currentConn = conn
+					appendToOut("chrome conn created:" + conn.LocalAddr().String())
 				}
 			}()
 		},
 		"write": func() {
 			go func() {
+				if currentConn == nil {
+					return
+				}
 				dat := []byte(in.Get().String())
-				n, err := conn.Write(dat)
+				appendToOut("writing:" + currentConn.LocalAddr().String())
+				n, err := currentConn.Write(dat)
 				if err != nil {
 					appendToOut(err.Error())
 				} else {
@@ -87,7 +125,7 @@ func main() {
 		QUnit.Test("tcpserver.Create", func(assert QUnit.QUnitAssert) {
 			assert.NotEqual(serverSock, 0, "tcpserver.Create")
 		})
-		tcpserver.Listen(serverSock, "127.0.0.1", port, func(result int) {
+		tcpserver.Listen(serverSock, ip.Get().String(), port.Get().Int(), func(result int) {
 			QUnit.Test("tcpserver.Listen", func(assert QUnit.QUnitAssert) {
 				assert.Ok(result >= 0, "listen failed")
 			})
@@ -105,15 +143,5 @@ func main() {
 			println(clientSock)
 			assert.NotEqual(ci.SocketId, 0, "CreateEx")
 		})
-	})
-
-	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
-		println("receiving from:", ri.SocketId, string(ri.Data))
-		appendToOut("server receive:" + string(ri.Data))
-	})
-
-	tcp.OnReceiveError(func(re *tcp.ReceiveError) {
-		log.Printf("tcp receive error: %v\n", re)
-		appendToOut(fmt.Sprintf("tcp receive error: %v\n", re))
 	})
 }
