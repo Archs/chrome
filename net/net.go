@@ -31,7 +31,7 @@ type crConn struct {
 }
 
 func newCrConn(socketId int) *crConn {
-	println("creating crConn, id:", socketId)
+	// println("creating crConn, id:", socketId)
 	conn := &crConn{
 		socketId:     socketId,
 		readBuf:      bytes.NewBuffer(nil),
@@ -39,7 +39,7 @@ func newCrConn(socketId int) *crConn {
 		readDeadLine: time.Time{},
 	}
 	smap[socketId] = conn
-	println("c smap length:", len(smap))
+	// println("c smap length:", len(smap))
 	return conn
 }
 
@@ -112,7 +112,7 @@ func (cl *crListener) Accept() (c net.Conn, err error) {
 		return
 	}
 	id := <-cl.ch
-	println("listener.Accept socket id", id)
+	// println("listener.Accept socket id", id)
 	c = newCrConn(id)
 	return
 }
@@ -149,32 +149,44 @@ func (t *timeoutError) Timeout() bool {
 	return t.isTimeOut
 }
 
+func (c *crConn) hasTimeout() bool {
+	if !c.readDeadLine.IsZero() && time.Now().After(c.readDeadLine) {
+		return true
+	}
+	return false
+}
+
 // Read reads data from the connection.
 // Read can be made to time out and return a Error with Timeout() == true
 // after a fixed time limit; see SetDeadline and SetReadDeadline.
 func (c *crConn) Read(b []byte) (n int, err error) {
-	m.Lock()
-	defer m.Unlock()
 	if c.readError != nil {
 		return 0, c.readError
 	}
-	n, err = c.readBuf.Read(b)
-	if n == 0 && !c.readDeadLine.IsZero() && time.Now().Before(c.readDeadLine) {
-		time.Sleep(time.Millisecond * 10)
-		return c.Read(b)
-	}
-	if n == 0 && !c.readDeadLine.IsZero() && time.Now().After(c.readDeadLine) {
-		return 0, &timeoutError{
-			OpError: net.OpError{
-				Op:   "read",
-				Net:  "tcp",
-				Addr: c.RemoteAddr(),
-				Err:  errors.New("timeout"),
-			},
-			isTimeOut: true,
+	for {
+		m.Lock()
+		n, err = c.readBuf.Read(b)
+		m.Unlock()
+		// data read
+		if n > 0 {
+			// in case of err == EOF
+			err = nil
+			return
 		}
+		// timeout
+		if c.hasTimeout() {
+			return 0, &timeoutError{
+				OpError: net.OpError{
+					Op:   "read",
+					Net:  "tcp",
+					Addr: c.RemoteAddr(),
+					Err:  errors.New("timeout"),
+				},
+				isTimeOut: true,
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	return n, err
 }
 
 // Write writes data to the connection.
@@ -197,7 +209,7 @@ func (c *crConn) Write(b []byte) (n int, err error) {
 // Close closes the connection.
 // Any blocked Read or Write operations will be unblocked and return errors.
 func (c *crConn) Close() error {
-	println("conn.Close called")
+	// println("conn.Close called")
 	tcp.Close(c.socketId)
 	delete(smap, c.socketId)
 	return nil
@@ -269,17 +281,19 @@ func (c *crConn) SetWriteDeadline(t time.Time) error {
 
 func init() {
 	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
-		m.Lock()
-		defer m.Unlock()
-		println("tcp receive on socket:", ri.SocketId)
-		println("smap length:", len(smap))
-		conn, ok := smap[ri.SocketId]
-		if ok {
-			println("ri.Data", ri.Data)
-			conn.readBuf.Write(ri.Data)
-		} else {
-			println("no conn found", smap)
-		}
+		go func() {
+			m.Lock()
+			defer m.Unlock()
+			// println("tcp receive on socket:", ri.SocketId)
+			// println("smap length:", len(smap))
+			conn, ok := smap[ri.SocketId]
+			if ok {
+				// println("ri.Data", ri.Data)
+				conn.readBuf.Write(ri.Data)
+			} else {
+				println("no conn found", smap)
+			}
+		}()
 	})
 	tcp.OnReceiveError(func(re *tcp.ReceiveError) {
 		m.Lock()
@@ -290,7 +304,7 @@ func init() {
 		}
 	})
 	tcpserver.OnAccept(func(ai *tcpserver.AcceptInfo) {
-		println("tcpserver accept:", ai.ClientSocketId)
+		// println("tcpserver accept:", ai.ClientSocketId)
 		cl, ok := listenerMap[ai.SocketId]
 		if !ok {
 			return
