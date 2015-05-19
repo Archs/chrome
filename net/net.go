@@ -1,18 +1,30 @@
 package net
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"github.com/Archs/chrome/net/sockets"
 	"github.com/Archs/chrome/net/sockets/tcp"
 	"net"
+	"sync"
 	"time"
+)
+
+var (
+	// scoket map
+	smap = make(map[int]*crConn)
+	m    = new(sync.Mutex)
 )
 
 type Conn net.Conn
 
 // chrome conn
 type crConn struct {
-	socketId int
+	socketId     int
+	readBuf      *bytes.Buffer
+	readError    error
+	readDeadLine time.Time
 }
 
 func Dial(network, address string) (Conn, error) {
@@ -40,11 +52,41 @@ func Dial(network, address string) (Conn, error) {
 	}, nil
 }
 
+type timeoutError struct {
+	net.OpError
+	isTimeOut bool
+}
+
+func (t *timeoutError) Timeout() bool {
+	return t.isTimeOut
+}
+
 // Read reads data from the connection.
 // Read can be made to time out and return a Error with Timeout() == true
 // after a fixed time limit; see SetDeadline and SetReadDeadline.
 func (c *crConn) Read(b []byte) (n int, err error) {
-	return
+	m.Lock()
+	defer m.Unlock()
+	if c.readError != nil {
+		return 0, c.readError
+	}
+	n, err = c.readBuf.Read(b)
+	if n == 0 && !c.readDeadLine.IsZero() && time.Now().Before(c.readDeadLine) {
+		time.Sleep(time.Millisecond * 10)
+		return c.Read(b)
+	}
+	if n == 0 && !c.readDeadLine.IsZero() && time.Now().After(c.readDeadLine) {
+		return 0, &timeoutError{
+			OpError: net.OpError{
+				Op:   "read",
+				Net:  "tcp",
+				Addr: c.RemoteAddr(),
+				Err:  errors.New("timeout"),
+			},
+			isTimeOut: true,
+		}
+	}
+	return n, err
 }
 
 // Write writes data to the connection.
@@ -54,7 +96,7 @@ func (c *crConn) Write(b []byte) (n int, err error) {
 	ch := make(chan struct{})
 	tcp.Send(c.socketId, b, func(si *tcp.SendInfo) {
 		if si.ResultCode < 0 {
-			err = errors.New("chrome conn write failed")
+			err = fmt.Errorf("socket write failed: %d", si.ResultCode)
 		} else {
 			n = si.BytesSent
 		}
@@ -115,12 +157,15 @@ func (c *crConn) RemoteAddr() net.Addr {
 //
 // A zero value for t means I/O operations will not time out.
 func (c *crConn) SetDeadline(t time.Time) error {
+	c.SetReadDeadline(t)
+	c.SetWriteDeadline(t)
 	return nil
 }
 
 // SetReadDeadline sets the deadline for future Read calls.
 // A zero value for t means Read will not time out.
 func (c *crConn) SetReadDeadline(t time.Time) error {
+	c.readDeadLine = t
 	return nil
 }
 
@@ -130,4 +175,17 @@ func (c *crConn) SetReadDeadline(t time.Time) error {
 // A zero value for t means Write will not time out.
 func (c *crConn) SetWriteDeadline(t time.Time) error {
 	return nil
+}
+
+func init() {
+	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
+		m.Lock()
+		defer m.Unlock()
+		smap[ri.SocketId].readBuf.Write(ri.Data)
+	})
+	tcp.OnReceiveError(func(re *tcp.ReceiveError) {
+		m.Lock()
+		defer m.Unlock()
+		smap[re.SocketId].readError = fmt.Errorf("recv error code %d", re.ResultCode)
+	})
 }
