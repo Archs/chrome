@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Archs/chrome/net/sockets"
 	"github.com/Archs/chrome/net/sockets/tcp"
+	"github.com/Archs/chrome/net/sockets/tcpserver"
 	"net"
 	"sync"
 	"time"
@@ -15,6 +16,8 @@ var (
 	// scoket map
 	smap = make(map[int]*crConn)
 	m    = new(sync.Mutex)
+	// listen chan
+	listenerMap = make(map[int]*crListener)
 )
 
 type Conn net.Conn
@@ -25,6 +28,12 @@ type crConn struct {
 	readBuf      *bytes.Buffer
 	readError    error
 	readDeadLine time.Time
+}
+
+type crListener struct {
+	socketId int
+	ch       chan int
+	err      error
 }
 
 func Dial(network, address string) (Conn, error) {
@@ -50,6 +59,70 @@ func Dial(network, address string) (Conn, error) {
 	return &crConn{
 		socketId: socketId,
 	}, nil
+}
+
+func Listen(network, laddr string) (net.Listener, error) {
+	var err error
+	var addr *net.TCPAddr
+	socketId := 0
+	ch := make(chan struct{})
+	tcpserver.Create(func(ci *sockets.CreateInfo) {
+		socketId = ci.SocketId
+		addr, err = net.ResolveTCPAddr(network, laddr)
+		if err == nil {
+			tcpserver.Listen(socketId, addr.IP.String(), addr.Port, func(result int) {
+				if result < 0 {
+					err = fmt.Errorf("tcp server listen error: %d", result)
+				}
+			})
+		}
+		close(ch)
+	})
+	<-ch
+	if err != nil {
+		return nil, err
+	}
+	return &crListener{
+		socketId: socketId,
+		ch:       make(chan int),
+		err:      nil,
+	}, nil
+}
+
+// Accept waits for and returns the next connection to the listener.
+func (cl *crListener) Accept() (c net.Conn, err error) {
+	if cl.err != nil {
+		c = nil
+		err = cl.err
+		cl.err = nil
+		return
+	}
+	c = &crConn{
+		socketId: <-cl.ch,
+	}
+	return
+}
+
+// Close closes the listener.
+// Any blocked Accept operations will be unblocked and return errors.
+func (c *crListener) Close() error {
+	tcpserver.Close(c.socketId)
+	return nil
+}
+
+// Addr returns the listener's network address.
+func (c *crListener) Addr() net.Addr {
+	var addr net.Addr
+	ch := make(chan struct{})
+	tcpserver.GetInfo(c.socketId, func(si *sockets.SocketInfo) {
+		addr = &net.TCPAddr{
+			IP:   net.ParseIP(si.LocalAddress),
+			Port: si.LocalPort,
+		}
+		close(ch)
+	})
+	<-ch
+	return addr
 }
 
 type timeoutError struct {
@@ -187,5 +260,19 @@ func init() {
 		m.Lock()
 		defer m.Unlock()
 		smap[re.SocketId].readError = fmt.Errorf("recv error code %d", re.ResultCode)
+	})
+	tcpserver.OnAccept(func(ai *tcpserver.AcceptInfo) {
+		cl, ok := listenerMap[ai.SocketId]
+		if !ok {
+			return
+		}
+		cl.ch <- ai.ClientSocketId
+	})
+	tcpserver.OnAcceptError(func(ae *tcpserver.AcceptError) {
+		cl, ok := listenerMap[ae.SocketId]
+		if !ok {
+			return
+		}
+		cl.err = fmt.Errorf("accept error: %d", ae.ResultCode)
 	})
 }
