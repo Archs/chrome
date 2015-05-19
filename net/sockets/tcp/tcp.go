@@ -31,6 +31,10 @@ func Create(p sockets.SocketProperties, callback func(*sockets.CreateInfo)) {
 	tcp.Call("create", p, callback)
 }
 
+func CreateEx(callback func(*sockets.CreateInfo)) {
+	tcp.Call("create", callback)
+}
+
 // chrome.sockets.tcp.connect(integer socketId, string peerAddress, integer peerPort, function callback)
 // Connects the socket to a remote machine. When the connect operation completes successfully, onReceive events are raised when data is received from the peer. If a network error occurs while the runtime is receiving packets, a onReceiveError event is raised, at which point no more onReceive event will be raised for this socket until the resume method is called.
 //
