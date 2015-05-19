@@ -31,8 +31,36 @@ func Create(p sockets.SocketProperties, callback func(*sockets.CreateInfo)) {
 	tcp.Call("create", p, callback)
 }
 
+func CreateM(socketProperties js.M, callback func(*sockets.CreateInfo)) {
+	tcp.Call("create", socketProperties, callback)
+}
+
 func CreateEx(callback func(*sockets.CreateInfo)) {
 	tcp.Call("create", callback)
+}
+
+// chrome.sockets.tcp.update(integer socketId, SocketProperties properties, function callback)
+// Updates the socket properties.
+//
+// Parameters
+// integer	socketId
+// The socket identifier.
+//
+// SocketProperties	properties
+// The properties to update.
+//
+// function	(optional) callback
+// Called when the properties are updated.
+//
+// If you specify the callback parameter, it should be a function that looks like this:
+//
+// function() {...};
+func Update(socketId int, properties *sockets.SocketProperties, callback func()) {
+	tcp.Call("update", socketId, properties, callback)
+}
+
+func UpdateEx(socketId int, properties *sockets.SocketProperties) {
+	tcp.Call("update", socketId, properties)
 }
 
 // chrome.sockets.tcp.connect(integer socketId, string peerAddress, integer peerPort, function callback)
