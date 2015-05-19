@@ -11,6 +11,24 @@ var (
 
 type AppWindow struct {
 	o *js.Object
+	// Window	contentWindow
+	// The JavaScript 'window' object for the created child.
+	ContentWindow *js.Object `js:"contentWindow"`
+
+	// string	id
+	// Since Chrome 33.
+	// The id the window was created with.
+	Id string `js:"id"`
+
+	// Bounds	innerBounds
+	// Since Chrome 35.
+	// The position, size and constraints of the window's content, which does not include window decorations. This property is new in Chrome 36.
+	InnerBounds *Bounds `js:"innerBounds"`
+
+	// Bounds	outerBounds
+	// Since Chrome 35.
+	// The position, size and constraints of the window, which includes window decorations, such as the title bar and frame. This property is new in Chrome 36.
+	OuterBounds *Bounds `js:"outerBounds"`
 }
 
 // Since Chrome 35.
@@ -47,6 +65,58 @@ type BoundsSpecification struct {
 	// integer	(optional) maxHeight
 	// The maximum height of the content or window.
 	MaxHeigth int `js:"maxHeight"`
+}
+
+type Bounds struct {
+	BoundsSpecification
+}
+
+// function	 setPosition
+// Since Chrome 35.
+//
+// Set the left and top position of the content or window.
+//
+// Parameters
+// integer	 left
+// integer	 top
+func (b *Bounds) SetPosition(left, top int) {
+	b.Call("setPosition", left, top)
+}
+
+// function	 setSize
+// Since Chrome 35.
+//
+// Set the width and height of the content or window.
+//
+// Parameters
+// integer	 width
+// integer	 height
+func (b *Bounds) SetSize(width, height int) {
+	b.Call("setSize", width, height)
+}
+
+// function	 setMinimumSize
+// Since Chrome 35.
+//
+// Set the minimum size constraints of the content or window. The minimum width or height can be set to null to remove the constraint. A value of undefined will leave a constraint unchanged.
+//
+// Parameters
+// integer	 minWidth
+// integer	 minHeight
+func (b *Bounds) SetMinimumSize(minWidth, minHeight int) {
+	b.Call("setMinimumSize", minWidth, minHeight)
+}
+
+// function	 setMaximumSize
+// Since Chrome 35.
+//
+// Set the maximum size constraints of the content or window. The maximum width or height can be set to null to remove the constraint. A value of undefined will leave a constraint unchanged.
+//
+// Parameters
+// integer	 maxWidth
+// integer	 maxHeight
+func (b *Bounds) SetMaximumSize(minWidth, minHeight int) {
+	b.Call("setMaximumSize", minWidth, minHeight)
 }
 
 // Since Chrome 35.
@@ -174,41 +244,56 @@ func (a *AppWindow) Focus() {
 // Since Chrome 28.
 //
 // Fullscreens the window.
+// The user will be able to restore the window by pressing ESC. An application can prevent the fullscreen state to be left when ESC is pressed by requesting the app.window.fullscreen.overrideEsc permission and canceling the event by calling .preventDefault(), in the keydown and keyup handlers, like this:
+// window.onkeydown = window.onkeyup = function(e) { if (e.keyCode == 27 /* ESC */) { e.preventDefault(); } };
+//
+// Note window.fullscreen() will cause the entire window to become fullscreen and does not require a user gesture. The HTML5 fullscreen API can also be used to enter fullscreen mode (see Web APIs for more details).
 func (a *AppWindow) Fullscreen() {
 	a.o.Call("fullscreen")
 }
 
-// The user will be able to restore the window by pressing ESC. An application can prevent the fullscreen state to be left when ESC is pressed by requesting the app.window.fullscreen.overrideEsc permission and canceling the event by calling .preventDefault(), in the keydown and keyup handlers, like this:
-// window.onkeydown = window.onkeyup = function(e) { if (e.keyCode == 27 /* ESC */) { e.preventDefault(); } };
-
-// Note window.fullscreen() will cause the entire window to become fullscreen and does not require a user gesture. The HTML5 fullscreen API can also be used to enter fullscreen mode (see Web APIs for more details).
-
 // function	isFullscreen
 // Since Chrome 27.
-
-// Is the window fullscreen? This will be true if the window has been created fullscreen or was made fullscreen via the AppWindow or HTML5 fullscreen APIs.
-
+//
+// Is the window fullscreen?
+// This will be true if the window has been created fullscreen or was made fullscreen via the AppWindow or HTML5 fullscreen APIs.
 // Returns	boolean.
+func (a *AppWindow) IsFullscreen() bool {
+	return a.o.Call("fullscreen").Bool()
+}
+
 // function	minimize
 // Minimize the window.
+func (a *AppWindow) Minimize() {
+	a.o.Call("minimize")
+}
 
 // function	isMinimized
 // Since Chrome 25.
-
 // Is the window minimized?
+func (a *AppWindow) IsMinimized() bool {
+	return a.o.Call("isMinimized").Bool()
+}
 
-// Returns	boolean.
 // function	maximize
 // Maximize the window.
+func (a *AppWindow) Maximize() {
+	a.o.Call("maximize")
+}
 
 // function	isMaximized
 // Since Chrome 25.
-
 // Is the window maximized?
-
 // Returns	boolean.
+func (a *AppWindow) IsMaximized() bool {
+	return a.o.Call("isMaximized").Bool()
+}
+
 // function	restore
 // Restore the window, exiting a maximized, minimized, or fullscreen state.
+func (a *AppWindow) Restore() {
+	a.o.Call("restore")
+}
 
 // function	moveTo
 // Deprecated since Chrome 43. Use outerBounds.
@@ -230,15 +315,22 @@ func (a *AppWindow) Fullscreen() {
 // Parameters
 // integer	width
 // integer	height
+
 // function	drawAttention
 // Since Chrome 24.
-
+//
 // Draw attention to the window.
+func (a *AppWindow) DrawAttention() {
+	a.o.Call("drawAttention")
+}
 
 // function	clearAttention
 // Since Chrome 24.
-
+//
 // Clear attention to the window.
+func (a *AppWindow) ClearAttention() {
+	a.o.Call("clearAttention")
+}
 
 // function	close
 // Since Chrome 24.
@@ -278,47 +370,45 @@ func (a *AppWindow) Hide() {
 
 // Parameters
 // ContentBounds	bounds
+
 // function	isAlwaysOnTop
 // Since Chrome 32.
-
+//
 // Is the window always on top?
-
 // Returns	boolean.
+func (a *AppWindow) IsAlwaysOnTop() bool {
+	return a.o.Call("isAlwaysOnTop").Bool()
+}
+
 // function	setAlwaysOnTop
 // Since Chrome 32.
-
+//
 // Set whether the window should stay above most other windows. Requires the alwaysOnTopWindows permission.
-
+//
 // Parameters
 // boolean	alwaysOnTop
+func (a *AppWindow) SetAlwaysOnTop(alwaysOnTop bool) {
+	a.o.Call("alwaysOnTop", alwaysOnTop)
+}
+
 // function	setVisibleOnAllWorkspaces
 // Since Chrome 39.
-
+//
 // For platforms that support multiple workspaces, is this window visible on all of them?
-
+//
 // Parameters
 // boolean	alwaysVisible
+func (a *AppWindow) SetVisibleOnAllWorkspaces(alwaysVisible bool) {
+	a.o.Call("setVisibleOnAllWorkspaces", alwaysVisible)
+}
+
 // function	setInterceptAllKeys
 // Since Chrome 41.
-
+//
 // Set whether the window should get all keyboard events including system keys that are usually not sent. This is best-effort subject to platform specific constraints. Requires the "app.window.allKeys" permission. This is currently available only in dev channel on Windows.
-
+//
 // Parameters
 // boolean	wantAllKeys
-// Window	contentWindow
-// The JavaScript 'window' js.M for the created child.
-
-// string	id
-// Since Chrome 33.
-
-// The id the window was created with.
-
-// Bounds	innerBounds
-// Since Chrome 35.
-
-// The position, size and constraints of the window's content, which does not include window decorations. This property is new in Chrome 36.
-
-// Bounds	outerBounds
-// Since Chrome 35.
-
-// The position, size and constraints of the window, which includes window decorations, such as the title bar and frame. This property is new in Chrome 36.
+func (a *AppWindow) SetInterceptAllKeys(wantAllKeys bool) {
+	a.o.Call("setInterceptAllKeys", wantAllKeys)
+}
