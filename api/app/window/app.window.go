@@ -10,7 +10,7 @@ var (
 )
 
 type AppWindow struct {
-	o *js.Object
+	*js.Object
 	// Window	contentWindow
 	// The JavaScript 'window' object for the created child.
 	ContentWindow *js.Object `js:"contentWindow"`
@@ -234,10 +234,62 @@ func CreateM(url string, options js.M, callback func(*AppWindow)) {
 	window.Call("create", url, options, callback)
 }
 
+func CreateEx(url string) {
+	window.Call("create", url)
+}
+
+// current
+
+// AppWindow chrome.app.window.current()
+// Returns an AppWindow object for the current script context (ie JavaScript 'window' object).
+// This can also be called on a handle to a script context for another page,
+// for example: otherWindow.chrome.app.window.current().
+func Current() *AppWindow {
+	return &AppWindow{
+		Object: window.Call("current"),
+	}
+}
+
+// getAll
+//
+// array of AppWindow chrome.app.window.getAll()
+// Since Chrome 33.
+//
+// Gets an array of all currently created app windows. This method is new in Chrome 33.
+func AetAll() []*AppWindow {
+	ws := window.Call("getAll")
+	return ws.Interface().([]*AppWindow)
+}
+
+// get
+//
+// AppWindow chrome.app.window.get(string id)
+// Since Chrome 33.
+//
+// Gets an AppWindow with the given id. If no window with the given id exists null is returned. This method is new in Chrome 33.
+//
+// Parameters
+// string	 id
+func Get(id string) *AppWindow {
+	return &AppWindow{
+		Object: window.Call("get", id),
+	}
+}
+
+// canSetVisibleOnAllWorkspaces
+//
+// boolean chrome.app.window.canSetVisibleOnAllWorkspaces()
+// Since Chrome 42.
+//
+// Does the current platform support windows being visible on all workspaces?
+func CanSetVisibleOnAllWorkspaces() bool {
+	return window.Call("canSetVisibleOnAllWorkspaces").Bool()
+}
+
 // function	focus
 // Focus the window.
 func (a *AppWindow) Focus() {
-	a.o.Call("focus")
+	a.Call("focus")
 }
 
 // function	fullscreen
@@ -249,7 +301,7 @@ func (a *AppWindow) Focus() {
 //
 // Note window.fullscreen() will cause the entire window to become fullscreen and does not require a user gesture. The HTML5 fullscreen API can also be used to enter fullscreen mode (see Web APIs for more details).
 func (a *AppWindow) Fullscreen() {
-	a.o.Call("fullscreen")
+	a.Call("fullscreen")
 }
 
 // function	isFullscreen
@@ -259,26 +311,26 @@ func (a *AppWindow) Fullscreen() {
 // This will be true if the window has been created fullscreen or was made fullscreen via the AppWindow or HTML5 fullscreen APIs.
 // Returns	boolean.
 func (a *AppWindow) IsFullscreen() bool {
-	return a.o.Call("fullscreen").Bool()
+	return a.Call("fullscreen").Bool()
 }
 
 // function	minimize
 // Minimize the window.
 func (a *AppWindow) Minimize() {
-	a.o.Call("minimize")
+	a.Call("minimize")
 }
 
 // function	isMinimized
 // Since Chrome 25.
 // Is the window minimized?
 func (a *AppWindow) IsMinimized() bool {
-	return a.o.Call("isMinimized").Bool()
+	return a.Call("isMinimized").Bool()
 }
 
 // function	maximize
 // Maximize the window.
 func (a *AppWindow) Maximize() {
-	a.o.Call("maximize")
+	a.Call("maximize")
 }
 
 // function	isMaximized
@@ -286,13 +338,13 @@ func (a *AppWindow) Maximize() {
 // Is the window maximized?
 // Returns	boolean.
 func (a *AppWindow) IsMaximized() bool {
-	return a.o.Call("isMaximized").Bool()
+	return a.Call("isMaximized").Bool()
 }
 
 // function	restore
 // Restore the window, exiting a maximized, minimized, or fullscreen state.
 func (a *AppWindow) Restore() {
-	a.o.Call("restore")
+	a.Call("restore")
 }
 
 // function	moveTo
@@ -321,7 +373,7 @@ func (a *AppWindow) Restore() {
 //
 // Draw attention to the window.
 func (a *AppWindow) DrawAttention() {
-	a.o.Call("drawAttention")
+	a.Call("drawAttention")
 }
 
 // function	clearAttention
@@ -329,7 +381,7 @@ func (a *AppWindow) DrawAttention() {
 //
 // Clear attention to the window.
 func (a *AppWindow) ClearAttention() {
-	a.o.Call("clearAttention")
+	a.Call("clearAttention")
 }
 
 // function	close
@@ -337,7 +389,7 @@ func (a *AppWindow) ClearAttention() {
 
 // Close the window.
 func (a *AppWindow) Close() {
-	a.o.Call("close")
+	a.Call("close")
 }
 
 // function	show
@@ -347,14 +399,14 @@ func (a *AppWindow) Close() {
 // boolean	(optional) focused
 // Since Chrome 34.
 func (a *AppWindow) Show(focused bool) {
-	a.o.Call("show", focused)
+	a.Call("show", focused)
 }
 
 // function	hide
 // Since Chrome 24.
 // Hide the window. Does nothing if the window is already hidden.
 func (a *AppWindow) Hide() {
-	a.o.Call("hide")
+	a.Call("hide")
 }
 
 // function	getBounds
@@ -377,7 +429,7 @@ func (a *AppWindow) Hide() {
 // Is the window always on top?
 // Returns	boolean.
 func (a *AppWindow) IsAlwaysOnTop() bool {
-	return a.o.Call("isAlwaysOnTop").Bool()
+	return a.Call("isAlwaysOnTop").Bool()
 }
 
 // function	setAlwaysOnTop
@@ -388,7 +440,7 @@ func (a *AppWindow) IsAlwaysOnTop() bool {
 // Parameters
 // boolean	alwaysOnTop
 func (a *AppWindow) SetAlwaysOnTop(alwaysOnTop bool) {
-	a.o.Call("alwaysOnTop", alwaysOnTop)
+	a.Call("alwaysOnTop", alwaysOnTop)
 }
 
 // function	setVisibleOnAllWorkspaces
@@ -399,7 +451,7 @@ func (a *AppWindow) SetAlwaysOnTop(alwaysOnTop bool) {
 // Parameters
 // boolean	alwaysVisible
 func (a *AppWindow) SetVisibleOnAllWorkspaces(alwaysVisible bool) {
-	a.o.Call("setVisibleOnAllWorkspaces", alwaysVisible)
+	a.Call("setVisibleOnAllWorkspaces", alwaysVisible)
 }
 
 // function	setInterceptAllKeys
@@ -410,5 +462,5 @@ func (a *AppWindow) SetVisibleOnAllWorkspaces(alwaysVisible bool) {
 // Parameters
 // boolean	wantAllKeys
 func (a *AppWindow) SetInterceptAllKeys(wantAllKeys bool) {
-	a.o.Call("setInterceptAllKeys", wantAllKeys)
+	a.Call("setInterceptAllKeys", wantAllKeys)
 }
