@@ -116,6 +116,7 @@ func (cl *crListener) Accept() (c net.Conn, err error) {
 // Any blocked Accept operations will be unblocked and return errors.
 func (c *crListener) Close() error {
 	tcpserver.Close(c.socketId)
+	delete(listenerMap, c.socketId)
 	return nil
 }
 
@@ -192,6 +193,7 @@ func (c *crConn) Write(b []byte) (n int, err error) {
 // Any blocked Read or Write operations will be unblocked and return errors.
 func (c *crConn) Close() error {
 	tcp.Close(c.socketId)
+	delete(smap, c.socketId)
 	return nil
 }
 
