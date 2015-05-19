@@ -30,6 +30,15 @@ type crConn struct {
 	readDeadLine time.Time
 }
 
+func newCrConn(socketId int) *crConn {
+	return &crConn{
+		socketId:     socketId,
+		readBuf:      bytes.NewBuffer(nil),
+		readError:    nil,
+		readDeadLine: time.Time{},
+	}
+}
+
 type crListener struct {
 	socketId int
 	ch       chan int
@@ -56,9 +65,9 @@ func Dial(network, address string) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &crConn{
-		socketId: socketId,
-	}, nil
+	conn := newCrConn(socketId)
+	smap[socketId] = conn
+	return conn, nil
 }
 
 func Listen(network, laddr string) (net.Listener, error) {
@@ -97,9 +106,7 @@ func (cl *crListener) Accept() (c net.Conn, err error) {
 		cl.err = nil
 		return
 	}
-	c = &crConn{
-		socketId: <-cl.ch,
-	}
+	c = newCrConn(<-cl.ch)
 	return
 }
 
@@ -254,18 +261,26 @@ func init() {
 	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
 		m.Lock()
 		defer m.Unlock()
-		smap[ri.SocketId].readBuf.Write(ri.Data)
+		conn, ok := smap[ri.SocketId]
+		if ok {
+			println("ri.Data", ri.Data)
+			conn.readBuf.Write(ri.Data)
+		}
 	})
 	tcp.OnReceiveError(func(re *tcp.ReceiveError) {
 		m.Lock()
 		defer m.Unlock()
-		smap[re.SocketId].readError = fmt.Errorf("recv error code %d", re.ResultCode)
+		conn, ok := smap[re.SocketId]
+		if ok {
+			conn.readError = fmt.Errorf("recv error code %d", re.ResultCode)
+		}
 	})
 	tcpserver.OnAccept(func(ai *tcpserver.AcceptInfo) {
 		cl, ok := listenerMap[ai.SocketId]
 		if !ok {
 			return
 		}
+		tcp.SetPaused(ai.ClientSocketId, false)
 		cl.ch <- ai.ClientSocketId
 	})
 	tcpserver.OnAcceptError(func(ae *tcpserver.AcceptError) {
