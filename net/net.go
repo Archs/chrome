@@ -31,12 +31,14 @@ type crConn struct {
 }
 
 func newCrConn(socketId int) *crConn {
-	return &crConn{
+	conn := &crConn{
 		socketId:     socketId,
 		readBuf:      bytes.NewBuffer(nil),
 		readError:    nil,
 		readDeadLine: time.Time{},
 	}
+	smap[socketId] = conn
+	return conn
 }
 
 type crListener struct {
