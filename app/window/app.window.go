@@ -1,12 +1,13 @@
-package chrome
+package window
 
 import (
+	"github.com/Archs/chrome"
 	"github.com/gopherjs/gopherjs/js"
 )
 
-type AppWindowManager struct {
-	o *js.Object
-}
+var (
+	window = chrome.Get("app").Get("window")
+)
 
 type AppWindow struct {
 	o *js.Object
@@ -155,12 +156,12 @@ type CreateWindowOptions struct {
 // To set the position, size and constraints of the window, use the innerBounds or outerBounds properties. Inner bounds do not include window decorations. Outer bounds include the window's title bar and frame. Note that the padding between the inner and outer bounds is determined by the OS. Therefore setting the same property for both inner and outer bounds is considered an error (for example, setting both innerBounds.left and outerBounds.left).
 //
 // To automatically remember the positions of windows you can give them ids. If a window has an id, This id is used to remember the size and position of the window whenever it is moved or resized. This size and position is then used instead of the specified bounds on subsequent opening of a window with the same id. If you need to open a window with an id at a location other than the remembered default, you can create it hidden, move it to the desired location, then show it.
-func (a *AppWindowManager) Create(url string, options CreateWindowOptions, callback func(*AppWindow)) {
-	a.o.Call("create", url, options, callback)
+func Create(url string, options CreateWindowOptions, callback func(*AppWindow)) {
+	window.Call("create", url, options, callback)
 }
 
-func (a *AppWindowManager) CreateM(url string, options Object, callback func(*AppWindow)) {
-	a.o.Call("create", url, options, callback)
+func CreateM(url string, options js.M, callback func(*AppWindow)) {
+	window.Call("create", url, options, callback)
 }
 
 // function	focus
