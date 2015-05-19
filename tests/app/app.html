@@ -2,8 +2,23 @@
 <html>
 <head>
 	<title>Chrome App Gopherjs Binding Tests</title>
+    <link rel="stylesheet" href="resources/qunit-1.14.0.css">
 </head>
 <body>
-	<script src="app.js"></script>
+    <div>
+        <button data-bind="click: connect">Connect</button>
+    </div>
+    <div>
+        <input data-bind="value: input">    
+        <button data-bind="click: send">Send</button>
+    </div>
+    <div data-bind="text: output"></div>
+    <div id="qunit"></div>
+    <div id="qunit-fixture"></div>
+    <script src="resources/jquery-2.1.1.min.js"></script>
+    <script src="resources/qunit-1.14.0.js"></script>
+    <script src="resources/knockout-3.3.0.min.js"></script>
+    <script type="text/javascript" src="resources/knockout-secure-binding.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

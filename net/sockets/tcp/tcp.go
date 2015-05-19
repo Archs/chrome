@@ -201,6 +201,22 @@ func OnReceiveError(callback func(*ReceiveError)) {
 	tcp.Get("onReceiveError").Call("addListener", callback)
 }
 
+// chrome.sockets.tcp.setPaused(integer socketId, boolean paused, function callback)
+// Enables or disables the application from receiving messages from its peer. The default value is "false". Pausing a socket is typically used by an application to throttle data sent by its peer. When a socket is paused, no onReceive event is raised. When a socket is connected and un-paused, onReceive events are raised again when messages are received.
+//
+// Parameters
+// integer	socketId
+// boolean	paused
+// function	(optional) callback
+// Callback from the setPaused method.
+//
+// If you specify the callback parameter, it should be a function that looks like this:
+//
+// function() {...};
+func SetPaused(socketId int, paused bool) {
+	tcp.Call("setPaused", socketId, paused)
+}
+
 // setKeepAlive
 //
 // chrome.sockets.tcp.setKeepAlive(integer socketId, boolean enable, integer delay, function callback)
