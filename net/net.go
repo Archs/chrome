@@ -106,9 +106,7 @@ func (c *buffer) Read(b []byte) (n int, err error) {
 		return 0, c.readError
 	}
 	for {
-		m.Lock()
 		n, err = c.readBuf.Read(b)
-		m.Unlock()
 		// data read
 		if n > 0 {
 			// in case of err == EOF

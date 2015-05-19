@@ -6,13 +6,11 @@ import (
 	"github.com/Archs/chrome/net/sockets/tcp"
 	"github.com/Archs/chrome/net/sockets/tcpserver"
 	"net"
-	"sync"
 )
 
 var (
 	// scoket map
 	tcpMap = make(map[int]*tcpConn)
-	m      = new(sync.Mutex)
 	// listen chan
 	listenerMap = make(map[int]*tcpListener)
 )
@@ -135,8 +133,6 @@ func (c *tcpConn) RemoteAddr() net.Addr {
 func init() {
 	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
 		go func() {
-			m.Lock()
-			defer m.Unlock()
 			// println("tcp receive on socket:", ri.SocketId)
 			// println("tcpMap length:", len(tcpMap))
 			conn, ok := tcpMap[ri.SocketId]
@@ -149,8 +145,6 @@ func init() {
 		}()
 	})
 	tcp.OnReceiveError(func(re *tcp.ReceiveError) {
-		m.Lock()
-		defer m.Unlock()
 		conn, ok := tcpMap[re.SocketId]
 		if ok {
 			conn.readError = fmt.Errorf("recv error code %d", re.ResultCode)
