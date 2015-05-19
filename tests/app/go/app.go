@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Archs/chrome/net"
 	"github.com/Archs/chrome/net/sockets"
 	"github.com/Archs/chrome/net/sockets/tcp"
 	"github.com/Archs/chrome/net/sockets/tcpserver"
@@ -20,6 +21,8 @@ var (
 
 	in  = ko.NewObservable("sending to server")
 	out = ko.NewObservable("server response")
+
+	conn net.Conn
 )
 
 func appendToOut(msg string) {
@@ -49,6 +52,28 @@ func applyBindings() {
 					appendToOut(fmt.Sprintf("send %d bytes", si.BytesSent))
 				}
 			})
+		},
+		"dial": func() {
+			go func() {
+				var err error
+				conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", address, port))
+				if err != nil {
+					appendToOut(err.Error())
+				} else {
+					appendToOut("chrome conn created")
+				}
+			}()
+		},
+		"write": func() {
+			go func() {
+				dat := []byte(in.Get().String())
+				n, err := conn.Write(dat)
+				if err != nil {
+					appendToOut(err.Error())
+				} else {
+					appendToOut(fmt.Sprintf("%d bytes write to server", n))
+				}
+			}()
 		},
 	}
 	ko.ApplyBindings(model)
@@ -83,7 +108,7 @@ func main() {
 	})
 
 	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
-		println("tcp receive: ", *ri)
+		println("receiving from:", ri.SocketId, string(ri.Data))
 		appendToOut("server receive:" + string(ri.Data))
 	})
 
