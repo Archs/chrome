@@ -5,5 +5,5 @@ import (
 )
 
 var (
-	udp = sockets.Get("udp")
+	udp = js.Global.Get("chrome").Get("sockets").Get("udp")
 )
