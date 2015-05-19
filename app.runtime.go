@@ -16,7 +16,7 @@ type EmbedRequest struct {
 
 	// 	any	(optional) data
 	// Optional developer specified data that the app to be embedded can use when making an embedding decision.
-	Any js.Object `js:"data"`
+	Any *js.Object `js:"data"`
 
 	// function	allow
 	// Allows embedderId to embed this app in an <appview> element.
