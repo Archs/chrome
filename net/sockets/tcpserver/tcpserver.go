@@ -205,3 +205,19 @@ func GetInfo(socketId int, callback func(*sockets.SocketInfo)) {
 func GetSockets(callback func([]*sockets.SocketInfo)) {
 	tcp.Call("getSockets", callback)
 }
+
+// chrome.sockets.tcpServer.setPaused(integer socketId, boolean paused, function callback)
+// Enables or disables a listening socket from accepting new connections. When paused, a listening socket accepts new connections until its backlog (see listen function) is full then refuses additional connection requests. onAccept events are raised only when the socket is un-paused.
+//
+// Parameters
+// integer	socketId
+// boolean	paused
+// function	(optional) callback
+// Callback from the setPaused method.
+//
+// If you specify the callback parameter, it should be a function that looks like this:
+//
+// function() {...};
+func SetPaused(socketId int, paused bool) {
+	tcp.Call("setPaused", socketId, paused)
+}

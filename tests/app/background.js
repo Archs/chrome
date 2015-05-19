@@ -458,16 +458,6 @@ var $synthesizeMethods = function() {
   $methodSynthesizers = null;
 };
 
-var $ifaceKeyFor = function(x) {
-  if (x === $ifaceNil) {
-    return 'nil';
-  }
-  var c = x.constructor;
-  return c.string + '$' + c.keyFor(x.$val);
-};
-
-var $identity = function(x) { return x; };
-
 var $newType = function(size, kind, string, name, pkg, constructor) {
   var typ;
   switch(kind) {
@@ -484,12 +474,13 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
   case $kindString:
   case $kindUnsafePointer:
     typ = function(v) { this.$val = v; };
+    typ.prototype.$key = function() { return string + "$" + this.$val; };
     break;
 
   case $kindFloat32:
   case $kindFloat64:
     typ = function(v) { this.$val = v; };
-    typ.keyFor = function(x) { return $floatKey(x); };
+    typ.prototype.$key = function() { return string + "$" + $floatKey(this.$val); };
     break;
 
   case $kindInt64:
@@ -498,7 +489,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$low = low >>> 0;
       this.$val = this;
     };
-    typ.keyFor = function(x) { return x.$high + "$" + x.$low; };
+    typ.prototype.$key = function() { return string + "$" + this.$high + "$" + this.$low; };
     break;
 
   case $kindUint64:
@@ -507,7 +498,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$low = low >>> 0;
       this.$val = this;
     };
-    typ.keyFor = function(x) { return x.$high + "$" + x.$low; };
+    typ.prototype.$key = function() { return string + "$" + this.$high + "$" + this.$low; };
     break;
 
   case $kindComplex64:
@@ -516,7 +507,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$imag = $fround(imag);
       this.$val = this;
     };
-    typ.keyFor = function(x) { return x.$real + "$" + x.$imag; };
+    typ.prototype.$key = function() { return string + "$" + this.$real + "$" + this.$imag; };
     break;
 
   case $kindComplex128:
@@ -525,7 +516,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$imag = imag;
       this.$val = this;
     };
-    typ.keyFor = function(x) { return x.$real + "$" + x.$imag; };
+    typ.prototype.$key = function() { return string + "$" + this.$real + "$" + this.$imag; };
     break;
 
   case $kindArray:
@@ -539,9 +530,10 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       typ.elem = elem;
       typ.len = len;
       typ.comparable = elem.comparable;
-      typ.keyFor = function(x) {
-        return Array.prototype.join.call($mapArray(x, function(e) {
-          return String(elem.keyFor(e)).replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
+      typ.prototype.$key = function() {
+        return string + "$" + Array.prototype.join.call($mapArray(this.$val, function(e) {
+          var key = e.$key ? e.$key() : String(e);
+          return key.replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
         }), "$");
       };
       typ.ptr.init(typ);
@@ -558,12 +550,12 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$recvQueue = [];
       this.$closed = false;
     };
-    typ.keyFor = function(x) {
-      if (x.$id === undefined) {
+    typ.prototype.$key = function() {
+      if (this.$id === undefined) {
         $idCounter++;
-        x.$id = $idCounter;
+        this.$id = $idCounter;
       }
-      return String(x.$id);
+      return String(this.$id);
     };
     typ.init = function(elem, sendOnly, recvOnly) {
       typ.elem = elem;
@@ -586,7 +578,6 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
 
   case $kindInterface:
     typ = { implementedBy: {}, missingMethodFor: {} };
-    typ.keyFor = $ifaceKeyFor;
     typ.init = function(methods) {
       typ.methods = methods;
       methods.forEach(function(m) {
@@ -611,12 +602,12 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$target = target;
       this.$val = this;
     };
-    typ.keyFor = function(x) {
-      if (x.$id === undefined) {
+    typ.prototype.$key = function() {
+      if (this.$id === undefined) {
         $idCounter++;
-        x.$id = $idCounter;
+        this.$id = $idCounter;
       }
-      return String(x.$id);
+      return String(this.$id);
     };
     typ.init = function(elem) {
       typ.elem = elem;
@@ -656,10 +647,12 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
           typ.comparable = false;
         }
       });
-      typ.keyFor = function(x) {
-        var val = x.$val;
-        return $mapArray(fields, function(f) {
-          return String(f.typ.keyFor(val[f.prop])).replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
+      typ.prototype.$key = function() {
+        var val = this.$val;
+        return string + "$" + $mapArray(fields, function(f) {
+          var e = val[f.prop];
+          var key = e.$key ? e.$key() : String(e);
+          return key.replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
         }).join("$");
       };
       /* nil value */
@@ -780,7 +773,6 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
   typ.methods = [];
   typ.methodSetCache = null;
   typ.comparable = true;
-  typ.keyFor = typ.keyFor || $identity;
   return typ;
 };
 
@@ -966,7 +958,7 @@ var $interfaceType = function(methods) {
   return typ;
 };
 var $emptyInterface = $interfaceType([]);
-var $ifaceNil = {};
+var $ifaceNil = { $key: function() { return "nil"; } };
 var $error = $newType(8, $kindInterface, "error", "error", "", null);
 $error.init([{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}]);
 
@@ -1397,7 +1389,7 @@ var $go = function(fun, args, direct) {
       $curGoroutine = $goroutine;
       var r = fun.apply(undefined, args);
       if (r && r.$blk !== undefined) {
-        fun = function() { return r.$blk(); };
+        fun = function() { r.$blk(); };
         args = [];
         rescheduled = true;
         return;
@@ -1428,20 +1420,7 @@ var $go = function(fun, args, direct) {
   $schedule($goroutine, direct);
 };
 
-var $scheduled = [], $schedulerActive = false;
-var $runScheduled = function() {
-  try {
-    var r;
-    while ((r = $scheduled.shift()) !== undefined) {
-      r();
-    }
-    $schedulerActive = false;
-  } finally {
-    if ($schedulerActive) {
-      setTimeout($runScheduled, 0);
-    }
-  }
-};
+var $scheduled = [], $schedulerLoopActive = false;
 var $schedule = function(goroutine, direct) {
   if (goroutine.asleep) {
     goroutine.asleep = false;
@@ -1454,9 +1433,18 @@ var $schedule = function(goroutine, direct) {
   }
 
   $scheduled.push(goroutine);
-  if (!$schedulerActive) {
-    $schedulerActive = true;
-    setTimeout($runScheduled, 0);
+  if (!$schedulerLoopActive) {
+    $schedulerLoopActive = true;
+    setTimeout(function() {
+      while (true) {
+        var r = $scheduled.shift();
+        if (r === undefined) {
+          $schedulerLoopActive = false;
+          break;
+        }
+        r();
+      };
+    }, 0);
   }
 };
 
@@ -1914,8 +1902,8 @@ var $internalize = function(v, t, recv) {
     var m = new $Map();
     var keys = $keys(v);
     for (var i = 0; i < keys.length; i++) {
-      var k = $internalize(keys[i], t.key);
-      m[t.key.keyFor(k)] = { k: k, v: $internalize(v[keys[i]], t.elem) };
+      var key = $internalize(keys[i], t.key);
+      m[key.$key ? key.$key() : key] = { k: key, v: $internalize(v[keys[i]], t.elem) };
     }
     return m;
   case $kindPtr:
@@ -2120,7 +2108,7 @@ $packages["github.com/gopherjs/gopherjs/js"] = (function() {
 	return $pkg;
 })();
 $packages["runtime"] = (function() {
-	var $pkg = {}, $init, js, TypeAssertionError, errorString, ptrType$5, init, SetFinalizer;
+	var $pkg = {}, $init, js, TypeAssertionError, errorString, ptrType$5, init, GOROOT, SetFinalizer;
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	TypeAssertionError = $pkg.TypeAssertionError = $newType(0, $kindStruct, "runtime.TypeAssertionError", "TypeAssertionError", "runtime", function(interfaceString_, concreteString_, assertedString_, missingMethod_) {
 		this.$val = this;
@@ -2150,6 +2138,19 @@ $packages["runtime"] = (function() {
 		e = $ifaceNil;
 		e = new TypeAssertionError.ptr("", "", "", "");
 	};
+	GOROOT = function() {
+		var $ptr, goroot, process;
+		process = $global.process;
+		if (process === undefined) {
+			return "/";
+		}
+		goroot = process.env.GOROOT;
+		if (!(goroot === undefined)) {
+			return $internalize(goroot, $String);
+		}
+		return "/opt/goroot/git_go";
+	};
+	$pkg.GOROOT = GOROOT;
 	SetFinalizer = function(x, f) {
 		var $ptr, f, x;
 	};
@@ -2231,7 +2232,7 @@ $packages["errors"] = (function() {
 	return $pkg;
 })();
 $packages["sync/atomic"] = (function() {
-	var $pkg = {}, $init, js, CompareAndSwapInt32, AddInt32;
+	var $pkg = {}, $init, js, CompareAndSwapInt32, AddInt32, LoadUint32, StoreInt32, StoreUint32;
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	CompareAndSwapInt32 = function(addr, old, new$1) {
 		var $ptr, addr, new$1, old;
@@ -2249,6 +2250,21 @@ $packages["sync/atomic"] = (function() {
 		return new$1;
 	};
 	$pkg.AddInt32 = AddInt32;
+	LoadUint32 = function(addr) {
+		var $ptr, addr;
+		return addr.$get();
+	};
+	$pkg.LoadUint32 = LoadUint32;
+	StoreInt32 = function(addr, val) {
+		var $ptr, addr, val;
+		addr.$set(val);
+	};
+	$pkg.StoreInt32 = StoreInt32;
+	StoreUint32 = function(addr, val) {
+		var $ptr, addr, val;
+		addr.$set(val);
+	};
+	$pkg.StoreUint32 = StoreUint32;
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -2259,7 +2275,7 @@ $packages["sync/atomic"] = (function() {
 	return $pkg;
 })();
 $packages["sync"] = (function() {
-	var $pkg = {}, $init, runtime, atomic, Pool, Mutex, poolLocal, syncSema, ptrType, sliceType, chanType, ptrType$1, sliceType$1, ptrType$4, ptrType$6, sliceType$3, funcType, ptrType$10, arrayType, semWaiters, allPools, runtime_Syncsemcheck, runtime_registerPoolCleanup, runtime_Semacquire, runtime_Semrelease, poolCleanup, init, indexLocal, init$1;
+	var $pkg = {}, $init, runtime, atomic, Pool, Mutex, Locker, Once, poolLocal, syncSema, RWMutex, rlocker, ptrType, sliceType, chanType, sliceType$1, ptrType$2, ptrType$4, ptrType$6, sliceType$3, ptrType$7, ptrType$8, funcType, ptrType$10, funcType$1, ptrType$11, arrayType, semWaiters, allPools, runtime_Syncsemcheck, runtime_registerPoolCleanup, runtime_Semacquire, runtime_Semrelease, poolCleanup, init, indexLocal, raceEnable, init$1;
 	runtime = $packages["runtime"];
 	atomic = $packages["sync/atomic"];
 	Pool = $pkg.Pool = $newType(0, $kindStruct, "sync.Pool", "Pool", "sync", function(local_, localSize_, store_, New_) {
@@ -2285,6 +2301,17 @@ $packages["sync"] = (function() {
 		}
 		this.state = state_;
 		this.sema = sema_;
+	});
+	Locker = $pkg.Locker = $newType(8, $kindInterface, "sync.Locker", "Locker", "sync", null);
+	Once = $pkg.Once = $newType(0, $kindStruct, "sync.Once", "Once", "sync", function(m_, done_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.m = new Mutex.ptr();
+			this.done = 0;
+			return;
+		}
+		this.m = m_;
+		this.done = done_;
 	});
 	poolLocal = $pkg.poolLocal = $newType(0, $kindStruct, "sync.poolLocal", "poolLocal", "sync", function(private$0_, shared_, Mutex_, pad_) {
 		this.$val = this;
@@ -2312,16 +2339,52 @@ $packages["sync"] = (function() {
 		this.head = head_;
 		this.tail = tail_;
 	});
+	RWMutex = $pkg.RWMutex = $newType(0, $kindStruct, "sync.RWMutex", "RWMutex", "sync", function(w_, writerSem_, readerSem_, readerCount_, readerWait_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.w = new Mutex.ptr();
+			this.writerSem = 0;
+			this.readerSem = 0;
+			this.readerCount = 0;
+			this.readerWait = 0;
+			return;
+		}
+		this.w = w_;
+		this.writerSem = writerSem_;
+		this.readerSem = readerSem_;
+		this.readerCount = readerCount_;
+		this.readerWait = readerWait_;
+	});
+	rlocker = $pkg.rlocker = $newType(0, $kindStruct, "sync.rlocker", "rlocker", "sync", function(w_, writerSem_, readerSem_, readerCount_, readerWait_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.w = new Mutex.ptr();
+			this.writerSem = 0;
+			this.readerSem = 0;
+			this.readerCount = 0;
+			this.readerWait = 0;
+			return;
+		}
+		this.w = w_;
+		this.writerSem = writerSem_;
+		this.readerSem = readerSem_;
+		this.readerCount = readerCount_;
+		this.readerWait = readerWait_;
+	});
 	ptrType = $ptrType(Pool);
 	sliceType = $sliceType(ptrType);
 	chanType = $chanType($Bool, false, false);
-	ptrType$1 = $ptrType($Uint32);
 	sliceType$1 = $sliceType(chanType);
+	ptrType$2 = $ptrType($Uint32);
 	ptrType$4 = $ptrType($Int32);
 	ptrType$6 = $ptrType(poolLocal);
 	sliceType$3 = $sliceType($emptyInterface);
+	ptrType$7 = $ptrType(rlocker);
+	ptrType$8 = $ptrType(RWMutex);
 	funcType = $funcType([], [$emptyInterface], false);
 	ptrType$10 = $ptrType(Mutex);
+	funcType$1 = $funcType([], [], false);
+	ptrType$11 = $ptrType(Once);
 	arrayType = $arrayType($Uint8, 128);
 	runtime_Syncsemcheck = function(size) {
 		var $ptr, size;
@@ -2366,7 +2429,7 @@ $packages["sync"] = (function() {
 		/* */ $s = 2; continue;
 		/* if (s.$get() === 0) { */ case 1:
 			ch = new chanType(0);
-			_key = s; (semWaiters || $throwRuntimeError("assignment to entry in nil map"))[ptrType$1.keyFor(_key)] = { k: _key, v: $append((_entry = semWaiters[ptrType$1.keyFor(s)], _entry !== undefined ? _entry.v : sliceType$1.nil), ch) };
+			_key = s; (semWaiters || $throwRuntimeError("assignment to entry in nil map"))[_key.$key()] = { k: _key, v: $append((_entry = semWaiters[s.$key()], _entry !== undefined ? _entry.v : sliceType$1.nil), ch) };
 			_r = $recv(ch); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			_r[0];
 		/* } */ case 2:
@@ -2377,15 +2440,15 @@ $packages["sync"] = (function() {
 		var $ptr, _entry, _key, ch, s, w, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _key = $f._key; ch = $f.ch; s = $f.s; w = $f.w; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		s.$set(s.$get() + (1) >>> 0);
-		w = (_entry = semWaiters[ptrType$1.keyFor(s)], _entry !== undefined ? _entry.v : sliceType$1.nil);
+		w = (_entry = semWaiters[s.$key()], _entry !== undefined ? _entry.v : sliceType$1.nil);
 		if (w.$length === 0) {
 			return;
 		}
 		ch = (0 >= w.$length ? $throwRuntimeError("index out of range") : w.$array[w.$offset + 0]);
 		w = $subslice(w, 1);
-		_key = s; (semWaiters || $throwRuntimeError("assignment to entry in nil map"))[ptrType$1.keyFor(_key)] = { k: _key, v: w };
+		_key = s; (semWaiters || $throwRuntimeError("assignment to entry in nil map"))[_key.$key()] = { k: _key, v: w };
 		if (w.$length === 0) {
-			delete semWaiters[ptrType$1.keyFor(s)];
+			delete semWaiters[s.$key()];
 		}
 		$r = $send(ch, true); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: runtime_Semrelease }; } $f.$ptr = $ptr; $f._entry = _entry; $f._key = _key; $f.ch = ch; $f.s = s; $f.w = w; $f.$s = $s; $f.$r = $r; return $f;
@@ -2413,7 +2476,7 @@ $packages["sync"] = (function() {
 				if ((old & 1) === 0) {
 					/* break; */ $s = 2; continue;
 				}
-				$r = runtime_Semacquire((m.$ptr_sema || (m.$ptr_sema = new ptrType$1(function() { return this.$target.sema; }, function($v) { this.$target.sema = $v; }, m)))); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$r = runtime_Semacquire((m.$ptr_sema || (m.$ptr_sema = new ptrType$2(function() { return this.$target.sema; }, function($v) { this.$target.sema = $v; }, m)))); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				awoke = true;
 			/* } */ case 4:
 		/* } */ $s = 1; continue; case 2:
@@ -2437,7 +2500,7 @@ $packages["sync"] = (function() {
 			/* */ if (atomic.CompareAndSwapInt32((m.$ptr_state || (m.$ptr_state = new ptrType$4(function() { return this.$target.state; }, function($v) { this.$target.state = $v; }, m))), old, new$1)) { $s = 3; continue; }
 			/* */ $s = 4; continue;
 			/* if (atomic.CompareAndSwapInt32((m.$ptr_state || (m.$ptr_state = new ptrType$4(function() { return this.$target.state; }, function($v) { this.$target.state = $v; }, m))), old, new$1)) { */ case 3:
-				$r = runtime_Semrelease((m.$ptr_sema || (m.$ptr_sema = new ptrType$1(function() { return this.$target.sema; }, function($v) { this.$target.sema = $v; }, m)))); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$r = runtime_Semrelease((m.$ptr_sema || (m.$ptr_sema = new ptrType$2(function() { return this.$target.sema; }, function($v) { this.$target.sema = $v; }, m)))); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				return;
 			/* } */ case 4:
 			old = m.state;
@@ -2445,6 +2508,24 @@ $packages["sync"] = (function() {
 		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Mutex.ptr.prototype.Unlock }; } $f.$ptr = $ptr; $f.m = m; $f.new$1 = new$1; $f.old = old; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Mutex.prototype.Unlock = function() { return this.$val.Unlock(); };
+	Once.ptr.prototype.Do = function(f) {
+		var $ptr, f, o, $s, $deferred, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; f = $f.f; o = $f.o; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
+		o = this;
+		if (atomic.LoadUint32((o.$ptr_done || (o.$ptr_done = new ptrType$2(function() { return this.$target.done; }, function($v) { this.$target.done = $v; }, o)))) === 1) {
+			return;
+		}
+		$r = o.m.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$deferred.push([$methodVal(o.m, "Unlock"), []]);
+		/* */ if (o.done === 0) { $s = 2; continue; }
+		/* */ $s = 3; continue;
+		/* if (o.done === 0) { */ case 2:
+			$deferred.push([atomic.StoreUint32, [(o.$ptr_done || (o.$ptr_done = new ptrType$2(function() { return this.$target.done; }, function($v) { this.$target.done = $v; }, o))), 1]]);
+			$r = f(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 3:
+		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: Once.ptr.prototype.Do }; } $f.$ptr = $ptr; $f.f = f; $f.o = o; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
+	};
+	Once.prototype.Do = function(f) { return this.$val.Do(f); };
 	poolCleanup = function() {
 		var $ptr, _i, _i$1, _ref, _ref$1, i, i$1, j, l, p, x;
 		_ref = allPools;
@@ -2484,17 +2565,115 @@ $packages["sync"] = (function() {
 		var $ptr, i, l, x;
 		return (x = l, (x.nilCheck, ((i < 0 || i >= x.length) ? $throwRuntimeError("index out of range") : x[i])));
 	};
+	raceEnable = function() {
+		var $ptr;
+	};
 	init$1 = function() {
 		var $ptr, s;
 		s = $clone(new syncSema.ptr(), syncSema);
 		runtime_Syncsemcheck(12);
 	};
+	RWMutex.ptr.prototype.RLock = function() {
+		var $ptr, rw, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		rw = this;
+		/* */ if (atomic.AddInt32((rw.$ptr_readerCount || (rw.$ptr_readerCount = new ptrType$4(function() { return this.$target.readerCount; }, function($v) { this.$target.readerCount = $v; }, rw))), 1) < 0) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (atomic.AddInt32((rw.$ptr_readerCount || (rw.$ptr_readerCount = new ptrType$4(function() { return this.$target.readerCount; }, function($v) { this.$target.readerCount = $v; }, rw))), 1) < 0) { */ case 1:
+			$r = runtime_Semacquire((rw.$ptr_readerSem || (rw.$ptr_readerSem = new ptrType$2(function() { return this.$target.readerSem; }, function($v) { this.$target.readerSem = $v; }, rw)))); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 2:
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.RLock }; } $f.$ptr = $ptr; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RWMutex.prototype.RLock = function() { return this.$val.RLock(); };
+	RWMutex.ptr.prototype.RUnlock = function() {
+		var $ptr, r, rw, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		rw = this;
+		r = atomic.AddInt32((rw.$ptr_readerCount || (rw.$ptr_readerCount = new ptrType$4(function() { return this.$target.readerCount; }, function($v) { this.$target.readerCount = $v; }, rw))), -1);
+		/* */ if (r < 0) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (r < 0) { */ case 1:
+			if (((r + 1 >> 0) === 0) || ((r + 1 >> 0) === -1073741824)) {
+				raceEnable();
+				$panic(new $String("sync: RUnlock of unlocked RWMutex"));
+			}
+			/* */ if (atomic.AddInt32((rw.$ptr_readerWait || (rw.$ptr_readerWait = new ptrType$4(function() { return this.$target.readerWait; }, function($v) { this.$target.readerWait = $v; }, rw))), -1) === 0) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (atomic.AddInt32((rw.$ptr_readerWait || (rw.$ptr_readerWait = new ptrType$4(function() { return this.$target.readerWait; }, function($v) { this.$target.readerWait = $v; }, rw))), -1) === 0) { */ case 3:
+				$r = runtime_Semrelease((rw.$ptr_writerSem || (rw.$ptr_writerSem = new ptrType$2(function() { return this.$target.writerSem; }, function($v) { this.$target.writerSem = $v; }, rw)))); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* } */ case 4:
+		/* } */ case 2:
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.RUnlock }; } $f.$ptr = $ptr; $f.r = r; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RWMutex.prototype.RUnlock = function() { return this.$val.RUnlock(); };
+	RWMutex.ptr.prototype.Lock = function() {
+		var $ptr, r, rw, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		rw = this;
+		$r = rw.w.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		r = atomic.AddInt32((rw.$ptr_readerCount || (rw.$ptr_readerCount = new ptrType$4(function() { return this.$target.readerCount; }, function($v) { this.$target.readerCount = $v; }, rw))), -1073741824) + 1073741824 >> 0;
+		/* */ if (!((r === 0)) && !((atomic.AddInt32((rw.$ptr_readerWait || (rw.$ptr_readerWait = new ptrType$4(function() { return this.$target.readerWait; }, function($v) { this.$target.readerWait = $v; }, rw))), r) === 0))) { $s = 2; continue; }
+		/* */ $s = 3; continue;
+		/* if (!((r === 0)) && !((atomic.AddInt32((rw.$ptr_readerWait || (rw.$ptr_readerWait = new ptrType$4(function() { return this.$target.readerWait; }, function($v) { this.$target.readerWait = $v; }, rw))), r) === 0))) { */ case 2:
+			$r = runtime_Semacquire((rw.$ptr_writerSem || (rw.$ptr_writerSem = new ptrType$2(function() { return this.$target.writerSem; }, function($v) { this.$target.writerSem = $v; }, rw)))); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 3:
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.Lock }; } $f.$ptr = $ptr; $f.r = r; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RWMutex.prototype.Lock = function() { return this.$val.Lock(); };
+	RWMutex.ptr.prototype.Unlock = function() {
+		var $ptr, i, r, rw, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; i = $f.i; r = $f.r; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		rw = this;
+		r = atomic.AddInt32((rw.$ptr_readerCount || (rw.$ptr_readerCount = new ptrType$4(function() { return this.$target.readerCount; }, function($v) { this.$target.readerCount = $v; }, rw))), 1073741824);
+		if (r >= 1073741824) {
+			raceEnable();
+			$panic(new $String("sync: Unlock of unlocked RWMutex"));
+		}
+		i = 0;
+		/* while (true) { */ case 1:
+			/* if (!(i < (r >> 0))) { break; } */ if(!(i < (r >> 0))) { $s = 2; continue; }
+			$r = runtime_Semrelease((rw.$ptr_readerSem || (rw.$ptr_readerSem = new ptrType$2(function() { return this.$target.readerSem; }, function($v) { this.$target.readerSem = $v; }, rw)))); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			i = i + (1) >> 0;
+		/* } */ $s = 1; continue; case 2:
+		$r = rw.w.Unlock(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.Unlock }; } $f.$ptr = $ptr; $f.i = i; $f.r = r; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RWMutex.prototype.Unlock = function() { return this.$val.Unlock(); };
+	RWMutex.ptr.prototype.RLocker = function() {
+		var $ptr, rw;
+		rw = this;
+		return $pointerOfStructConversion(rw, ptrType$7);
+	};
+	RWMutex.prototype.RLocker = function() { return this.$val.RLocker(); };
+	rlocker.ptr.prototype.Lock = function() {
+		var $ptr, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		$r = $pointerOfStructConversion(r, ptrType$8).RLock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: rlocker.ptr.prototype.Lock }; } $f.$ptr = $ptr; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	rlocker.prototype.Lock = function() { return this.$val.Lock(); };
+	rlocker.ptr.prototype.Unlock = function() {
+		var $ptr, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		$r = $pointerOfStructConversion(r, ptrType$8).RUnlock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: rlocker.ptr.prototype.Unlock }; } $f.$ptr = $ptr; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	rlocker.prototype.Unlock = function() { return this.$val.Unlock(); };
 	ptrType.methods = [{prop: "Get", name: "Get", pkg: "", typ: $funcType([], [$emptyInterface], false)}, {prop: "Put", name: "Put", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "getSlow", name: "getSlow", pkg: "sync", typ: $funcType([], [$emptyInterface], false)}, {prop: "pin", name: "pin", pkg: "sync", typ: $funcType([], [ptrType$6], false)}, {prop: "pinSlow", name: "pinSlow", pkg: "sync", typ: $funcType([], [ptrType$6], false)}];
 	ptrType$10.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
+	ptrType$11.methods = [{prop: "Do", name: "Do", pkg: "", typ: $funcType([funcType$1], [], false)}];
+	ptrType$8.methods = [{prop: "RLock", name: "RLock", pkg: "", typ: $funcType([], [], false)}, {prop: "RUnlock", name: "RUnlock", pkg: "", typ: $funcType([], [], false)}, {prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}, {prop: "RLocker", name: "RLocker", pkg: "", typ: $funcType([], [Locker], false)}];
+	ptrType$7.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
 	Pool.init([{prop: "local", name: "local", pkg: "sync", typ: $UnsafePointer, tag: ""}, {prop: "localSize", name: "localSize", pkg: "sync", typ: $Uintptr, tag: ""}, {prop: "store", name: "store", pkg: "sync", typ: sliceType$3, tag: ""}, {prop: "New", name: "New", pkg: "", typ: funcType, tag: ""}]);
 	Mutex.init([{prop: "state", name: "state", pkg: "sync", typ: $Int32, tag: ""}, {prop: "sema", name: "sema", pkg: "sync", typ: $Uint32, tag: ""}]);
+	Locker.init([{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}]);
+	Once.init([{prop: "m", name: "m", pkg: "sync", typ: Mutex, tag: ""}, {prop: "done", name: "done", pkg: "sync", typ: $Uint32, tag: ""}]);
 	poolLocal.init([{prop: "private$0", name: "private", pkg: "sync", typ: $emptyInterface, tag: ""}, {prop: "shared", name: "shared", pkg: "sync", typ: sliceType$3, tag: ""}, {prop: "Mutex", name: "", pkg: "", typ: Mutex, tag: ""}, {prop: "pad", name: "pad", pkg: "sync", typ: arrayType, tag: ""}]);
 	syncSema.init([{prop: "lock", name: "lock", pkg: "sync", typ: $Uintptr, tag: ""}, {prop: "head", name: "head", pkg: "sync", typ: $UnsafePointer, tag: ""}, {prop: "tail", name: "tail", pkg: "sync", typ: $UnsafePointer, tag: ""}]);
+	RWMutex.init([{prop: "w", name: "w", pkg: "sync", typ: Mutex, tag: ""}, {prop: "writerSem", name: "writerSem", pkg: "sync", typ: $Uint32, tag: ""}, {prop: "readerSem", name: "readerSem", pkg: "sync", typ: $Uint32, tag: ""}, {prop: "readerCount", name: "readerCount", pkg: "sync", typ: $Int32, tag: ""}, {prop: "readerWait", name: "readerWait", pkg: "sync", typ: $Int32, tag: ""}]);
+	rlocker.init([{prop: "w", name: "w", pkg: "sync", typ: Mutex, tag: ""}, {prop: "writerSem", name: "writerSem", pkg: "sync", typ: $Uint32, tag: ""}, {prop: "readerSem", name: "readerSem", pkg: "sync", typ: $Uint32, tag: ""}, {prop: "readerCount", name: "readerCount", pkg: "sync", typ: $Int32, tag: ""}, {prop: "readerWait", name: "readerWait", pkg: "sync", typ: $Int32, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -2611,7 +2790,7 @@ $packages["unicode"] = (function() {
 	return $pkg;
 })();
 $packages["unicode/utf8"] = (function() {
-	var $pkg = {}, $init, decodeRuneInternal, decodeRuneInStringInternal, FullRune, DecodeRune, DecodeRuneInString, RuneLen, EncodeRune, RuneCount, RuneCountInString;
+	var $pkg = {}, $init, decodeRuneInternal, decodeRuneInStringInternal, DecodeRune, DecodeRuneInString, RuneLen, EncodeRune, RuneCount, RuneCountInString;
 	decodeRuneInternal = function(p) {
 		var $ptr, _tmp, _tmp$1, _tmp$10, _tmp$11, _tmp$12, _tmp$13, _tmp$14, _tmp$15, _tmp$16, _tmp$17, _tmp$18, _tmp$19, _tmp$2, _tmp$20, _tmp$21, _tmp$22, _tmp$23, _tmp$24, _tmp$25, _tmp$26, _tmp$27, _tmp$28, _tmp$29, _tmp$3, _tmp$30, _tmp$31, _tmp$32, _tmp$33, _tmp$34, _tmp$35, _tmp$36, _tmp$37, _tmp$38, _tmp$39, _tmp$4, _tmp$40, _tmp$41, _tmp$42, _tmp$43, _tmp$44, _tmp$45, _tmp$46, _tmp$47, _tmp$48, _tmp$49, _tmp$5, _tmp$50, _tmp$6, _tmp$7, _tmp$8, _tmp$9, c0, c1, c2, c3, n, p, r, short$1, size;
 		r = 0;
@@ -2772,12 +2951,6 @@ $packages["unicode/utf8"] = (function() {
 		_tmp$48 = 65533; _tmp$49 = 1; _tmp$50 = false; r = _tmp$48; size = _tmp$49; short$1 = _tmp$50;
 		return [r, size, short$1];
 	};
-	FullRune = function(p) {
-		var $ptr, _tuple, p, short$1;
-		_tuple = decodeRuneInternal(p); short$1 = _tuple[2];
-		return !short$1;
-	};
-	$pkg.FullRune = FullRune;
 	DecodeRune = function(p) {
 		var $ptr, _tuple, p, r, size;
 		r = 0;
@@ -2917,367 +3090,104 @@ $packages["bytes"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-$packages["unicode/utf16"] = (function() {
-	var $pkg = {}, $init, sliceType, sliceType$1, IsSurrogate, DecodeRune, EncodeRune, Encode, Decode;
-	sliceType = $sliceType($Uint16);
-	sliceType$1 = $sliceType($Int32);
-	IsSurrogate = function(r) {
-		var $ptr, r;
-		return 55296 <= r && r < 57344;
-	};
-	$pkg.IsSurrogate = IsSurrogate;
-	DecodeRune = function(r1, r2) {
-		var $ptr, r1, r2;
-		if (55296 <= r1 && r1 < 56320 && 56320 <= r2 && r2 < 57344) {
-			return ((((r1 - 55296 >> 0)) << 10 >> 0) | ((r2 - 56320 >> 0))) + 65536 >> 0;
-		}
-		return 65533;
-	};
-	$pkg.DecodeRune = DecodeRune;
-	EncodeRune = function(r) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, r, r1, r2;
-		r1 = 0;
-		r2 = 0;
-		if (r < 65536 || r > 1114111 || IsSurrogate(r)) {
-			_tmp = 65533; _tmp$1 = 65533; r1 = _tmp; r2 = _tmp$1;
-			return [r1, r2];
-		}
-		r = r - (65536) >> 0;
-		_tmp$2 = 55296 + (((r >> 10 >> 0)) & 1023) >> 0; _tmp$3 = 56320 + (r & 1023) >> 0; r1 = _tmp$2; r2 = _tmp$3;
-		return [r1, r2];
-	};
-	$pkg.EncodeRune = EncodeRune;
-	Encode = function(s) {
-		var $ptr, _i, _i$1, _ref, _ref$1, _tuple, a, n, r1, r2, s, v, v$1, x;
-		n = s.$length;
-		_ref = s;
-		_i = 0;
-		while (true) {
-			if (!(_i < _ref.$length)) { break; }
-			v = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			if (v >= 65536) {
-				n = n + (1) >> 0;
-			}
-			_i++;
-		}
-		a = $makeSlice(sliceType, n);
-		n = 0;
-		_ref$1 = s;
-		_i$1 = 0;
-		while (true) {
-			if (!(_i$1 < _ref$1.$length)) { break; }
-			v$1 = ((_i$1 < 0 || _i$1 >= _ref$1.$length) ? $throwRuntimeError("index out of range") : _ref$1.$array[_ref$1.$offset + _i$1]);
-			if (v$1 < 0 || 55296 <= v$1 && v$1 < 57344 || v$1 > 1114111) {
-				v$1 = 65533;
-				((n < 0 || n >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + n] = (v$1 << 16 >>> 16));
-				n = n + (1) >> 0;
-			} else if (v$1 < 65536) {
-				((n < 0 || n >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + n] = (v$1 << 16 >>> 16));
-				n = n + (1) >> 0;
-			} else {
-				_tuple = EncodeRune(v$1); r1 = _tuple[0]; r2 = _tuple[1];
-				((n < 0 || n >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + n] = (r1 << 16 >>> 16));
-				(x = n + 1 >> 0, ((x < 0 || x >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + x] = (r2 << 16 >>> 16)));
-				n = n + (2) >> 0;
-			}
-			_i$1++;
-		}
-		return $subslice(a, 0, n);
-	};
-	$pkg.Encode = Encode;
-	Decode = function(s) {
-		var $ptr, a, i, n, r, s, x, x$1, x$2;
-		a = $makeSlice(sliceType$1, s.$length);
-		n = 0;
-		i = 0;
-		while (true) {
-			if (!(i < s.$length)) { break; }
-			r = ((i < 0 || i >= s.$length) ? $throwRuntimeError("index out of range") : s.$array[s.$offset + i]);
-			if (55296 <= r && r < 56320 && (i + 1 >> 0) < s.$length && 56320 <= (x = i + 1 >> 0, ((x < 0 || x >= s.$length) ? $throwRuntimeError("index out of range") : s.$array[s.$offset + x])) && (x$1 = i + 1 >> 0, ((x$1 < 0 || x$1 >= s.$length) ? $throwRuntimeError("index out of range") : s.$array[s.$offset + x$1])) < 57344) {
-				((n < 0 || n >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + n] = DecodeRune((r >> 0), ((x$2 = i + 1 >> 0, ((x$2 < 0 || x$2 >= s.$length) ? $throwRuntimeError("index out of range") : s.$array[s.$offset + x$2])) >> 0)));
-				i = i + (1) >> 0;
-				n = n + (1) >> 0;
-			} else if (55296 <= r && r < 57344) {
-				((n < 0 || n >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + n] = 65533);
-				n = n + (1) >> 0;
-			} else {
-				((n < 0 || n >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + n] = (r >> 0));
-				n = n + (1) >> 0;
-			}
-			i = i + (1) >> 0;
-		}
-		return $subslice(a, 0, n);
-	};
-	$pkg.Decode = Decode;
-	$init = function() {
-		$pkg.$init = function() {};
-		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.$init = $init;
-	return $pkg;
-})();
 $packages["syscall"] = (function() {
-	var $pkg = {}, $init, bytes, errors, js, sync, atomic, utf16, DummyError, DLLError, DLL, Proc, LazyDLL, LazyProc, Handle, Errno, SecurityAttributes, Overlapped, Filetime, Win32finddata, win32finddata1, ByHandleFileInformation, Win32FileAttributeData, reparseDataBuffer, sliceType, ptrType, arrayType, ptrType$1, arrayType$1, ptrType$2, ptrType$3, ptrType$4, ptrType$5, sliceType$2, sliceType$3, ptrType$6, ptrType$10, ptrType$11, ptrType$15, arrayType$2, ptrType$18, ptrType$19, ptrType$20, ptrType$27, sliceType$6, ptrType$28, arrayType$8, arrayType$9, arrayType$10, arrayType$11, arrayType$20, warningPrinted, lineBuffer, minusOne, errors$1, modkernel32, modadvapi32, modshell32, modmswsock, modcrypt32, modws2_32, moddnsapi, modiphlpapi, modsecur32, modnetapi32, moduserenv, procGetLastError, procLoadLibraryW, procFreeLibrary, procGetProcAddress, procGetVersion, procFormatMessageW, procExitProcess, procCreateFileW, procReadFile, procWriteFile, procSetFilePointer, procCloseHandle, procGetStdHandle, procFindFirstFileW, procFindNextFileW, procFindClose, procGetFileInformationByHandle, procGetCurrentDirectoryW, procSetCurrentDirectoryW, procCreateDirectoryW, procRemoveDirectoryW, procDeleteFileW, procMoveFileW, procGetComputerNameW, procSetEndOfFile, procGetSystemTimeAsFileTime, procGetTimeZoneInformation, procCreateIoCompletionPort, procGetQueuedCompletionStatus, procPostQueuedCompletionStatus, procCancelIo, procCancelIoEx, procCreateProcessW, procOpenProcess, procTerminateProcess, procGetExitCodeProcess, procGetStartupInfoW, procGetCurrentProcess, procGetProcessTimes, procDuplicateHandle, procWaitForSingleObject, procGetTempPathW, procCreatePipe, procGetFileType, procCryptAcquireContextW, procCryptReleaseContext, procCryptGenRandom, procGetEnvironmentStringsW, procFreeEnvironmentStringsW, procGetEnvironmentVariableW, procSetEnvironmentVariableW, procSetFileTime, procGetFileAttributesW, procSetFileAttributesW, procGetFileAttributesExW, procGetCommandLineW, procCommandLineToArgvW, procLocalFree, procSetHandleInformation, procFlushFileBuffers, procGetFullPathNameW, procGetLongPathNameW, procGetShortPathNameW, procCreateFileMappingW, procMapViewOfFile, procUnmapViewOfFile, procFlushViewOfFile, procVirtualLock, procVirtualUnlock, procTransmitFile, procReadDirectoryChangesW, procCertOpenSystemStoreW, procCertOpenStore, procCertEnumCertificatesInStore, procCertAddCertificateContextToStore, procCertCloseStore, procCertGetCertificateChain, procCertFreeCertificateChain, procCertCreateCertificateContext, procCertFreeCertificateContext, procCertVerifyCertificateChainPolicy, procRegOpenKeyExW, procRegCloseKey, procRegQueryInfoKeyW, procRegEnumKeyExW, procRegQueryValueExW, procGetCurrentProcessId, procGetConsoleMode, procWriteConsoleW, procReadConsoleW, procCreateToolhelp32Snapshot, procProcess32FirstW, procProcess32NextW, procDeviceIoControl, procCreateSymbolicLinkW, procCreateHardLinkW, procWSAStartup, procWSACleanup, procWSAIoctl, procsocket, procsetsockopt, procgetsockopt, procbind, procconnect, procgetsockname, procgetpeername, proclisten, procshutdown, procclosesocket, procAcceptEx, procGetAcceptExSockaddrs, procWSARecv, procWSASend, procWSARecvFrom, procWSASendTo, procgethostbyname, procgetservbyname, procntohs, procgetprotobyname, procDnsQuery_W, procDnsRecordListFree, procDnsNameCompare_W, procGetAddrInfoW, procFreeAddrInfoW, procGetIfEntry, procGetAdaptersInfo, procSetFileCompletionNotificationModes, procWSAEnumProtocolsW, procTranslateNameW, procGetUserNameExW, procNetUserGetInfo, procNetGetJoinInformation, procNetApiBufferFree, procLookupAccountSidW, procLookupAccountNameW, procConvertSidToStringSidW, procConvertStringSidToSidW, procGetLengthSid, procCopySid, procOpenProcessToken, procGetTokenInformation, procGetUserProfileDirectoryW, init, printWarning, printToConsole, use, Syscall, Syscall6, Syscall9, Syscall12, Syscall15, getprocaddress, getStdHandle, GetConsoleMode, WriteFile, GetCommandLine, CommandLineToArgv, Getenv, NewLazyDLL, FullPath, itoa, uitoa, ByteSliceFromString, BytePtrFromString, StringToUTF16, UTF16FromString, UTF16ToString, StringToUTF16Ptr, UTF16PtrFromString, langid, Read, Write, Seek, Ftruncate, Fsync, FindNextFile, Fchdir, Fchmod, Fchown, Readlink, FreeLibrary, FormatMessage, CreateFile, ReadFile, SetFilePointer, CloseHandle, findNextFile1, FindClose, GetFileInformationByHandle, SetEndOfFile, GetFileType, GetFileAttributesEx, LocalFree, FlushFileBuffers, GetFullPathName, WriteConsole, ReadConsole, DeviceIoControl, copyFindData;
+	var $pkg = {}, $init, bytes, js, runtime, sync, mmapper, Errno, Timespec, Stat_t, Dirent, sliceType, sliceType$1, ptrType, arrayType$1, structType, ptrType$22, mapType, funcType, funcType$1, ptrType$26, arrayType$10, arrayType$12, arrayType$13, warningPrinted, lineBuffer, syscallModule, alreadyTriedToLoad, minusOne, envOnce, envLock, env, envs, mapper, errors, init, printWarning, printToConsole, use, runtime_envs, syscall, Syscall, Syscall6, BytePtrFromString, copyenv, Getenv, itoa, uitoa, clen, ReadDirent, ParseDirent, Read, Write, Close, Fchdir, Fchmod, Fsync, Getdents, read, write, munmap, Fchown, Fstat, Ftruncate, Lstat, Pread, Pwrite, Seek, mmap;
 	bytes = $packages["bytes"];
-	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
+	runtime = $packages["runtime"];
 	sync = $packages["sync"];
-	atomic = $packages["sync/atomic"];
-	utf16 = $packages["unicode/utf16"];
-	DummyError = $pkg.DummyError = $newType(0, $kindStruct, "syscall.DummyError", "DummyError", "syscall", function() {
+	mmapper = $pkg.mmapper = $newType(0, $kindStruct, "syscall.mmapper", "mmapper", "syscall", function(Mutex_, active_, mmap_, munmap_) {
 		this.$val = this;
 		if (arguments.length === 0) {
+			this.Mutex = new sync.Mutex.ptr();
+			this.active = false;
+			this.mmap = $throwNilPointerError;
+			this.munmap = $throwNilPointerError;
 			return;
 		}
+		this.Mutex = Mutex_;
+		this.active = active_;
+		this.mmap = mmap_;
+		this.munmap = munmap_;
 	});
-	DLLError = $pkg.DLLError = $newType(0, $kindStruct, "syscall.DLLError", "DLLError", "syscall", function(Err_, ObjName_, Msg_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.Err = $ifaceNil;
-			this.ObjName = "";
-			this.Msg = "";
-			return;
-		}
-		this.Err = Err_;
-		this.ObjName = ObjName_;
-		this.Msg = Msg_;
-	});
-	DLL = $pkg.DLL = $newType(0, $kindStruct, "syscall.DLL", "DLL", "syscall", function(Name_, Handle_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.Name = "";
-			this.Handle = 0;
-			return;
-		}
-		this.Name = Name_;
-		this.Handle = Handle_;
-	});
-	Proc = $pkg.Proc = $newType(0, $kindStruct, "syscall.Proc", "Proc", "syscall", function(Dll_, Name_, addr_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.Dll = ptrType$3.nil;
-			this.Name = "";
-			this.addr = 0;
-			return;
-		}
-		this.Dll = Dll_;
-		this.Name = Name_;
-		this.addr = addr_;
-	});
-	LazyDLL = $pkg.LazyDLL = $newType(0, $kindStruct, "syscall.LazyDLL", "LazyDLL", "syscall", function(mu_, dll_, Name_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.mu = new sync.Mutex.ptr();
-			this.dll = ptrType$3.nil;
-			this.Name = "";
-			return;
-		}
-		this.mu = mu_;
-		this.dll = dll_;
-		this.Name = Name_;
-	});
-	LazyProc = $pkg.LazyProc = $newType(0, $kindStruct, "syscall.LazyProc", "LazyProc", "syscall", function(mu_, Name_, l_, proc_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.mu = new sync.Mutex.ptr();
-			this.Name = "";
-			this.l = ptrType$5.nil;
-			this.proc = ptrType$4.nil;
-			return;
-		}
-		this.mu = mu_;
-		this.Name = Name_;
-		this.l = l_;
-		this.proc = proc_;
-	});
-	Handle = $pkg.Handle = $newType(4, $kindUintptr, "syscall.Handle", "Handle", "syscall", null);
 	Errno = $pkg.Errno = $newType(4, $kindUintptr, "syscall.Errno", "Errno", "syscall", null);
-	SecurityAttributes = $pkg.SecurityAttributes = $newType(0, $kindStruct, "syscall.SecurityAttributes", "SecurityAttributes", "syscall", function(Length_, SecurityDescriptor_, InheritHandle_) {
+	Timespec = $pkg.Timespec = $newType(0, $kindStruct, "syscall.Timespec", "Timespec", "syscall", function(Sec_, Nsec_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.Length = 0;
-			this.SecurityDescriptor = 0;
-			this.InheritHandle = 0;
+			this.Sec = new $Int64(0, 0);
+			this.Nsec = new $Int64(0, 0);
 			return;
 		}
-		this.Length = Length_;
-		this.SecurityDescriptor = SecurityDescriptor_;
-		this.InheritHandle = InheritHandle_;
+		this.Sec = Sec_;
+		this.Nsec = Nsec_;
 	});
-	Overlapped = $pkg.Overlapped = $newType(0, $kindStruct, "syscall.Overlapped", "Overlapped", "syscall", function(Internal_, InternalHigh_, Offset_, OffsetHigh_, HEvent_) {
+	Stat_t = $pkg.Stat_t = $newType(0, $kindStruct, "syscall.Stat_t", "Stat_t", "syscall", function(Dev_, Ino_, Nlink_, Mode_, Uid_, Gid_, X__pad0_, Rdev_, Size_, Blksize_, Blocks_, Atim_, Mtim_, Ctim_, X__unused_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.Internal = 0;
-			this.InternalHigh = 0;
-			this.Offset = 0;
-			this.OffsetHigh = 0;
-			this.HEvent = 0;
+			this.Dev = new $Uint64(0, 0);
+			this.Ino = new $Uint64(0, 0);
+			this.Nlink = new $Uint64(0, 0);
+			this.Mode = 0;
+			this.Uid = 0;
+			this.Gid = 0;
+			this.X__pad0 = 0;
+			this.Rdev = new $Uint64(0, 0);
+			this.Size = new $Int64(0, 0);
+			this.Blksize = new $Int64(0, 0);
+			this.Blocks = new $Int64(0, 0);
+			this.Atim = new Timespec.ptr();
+			this.Mtim = new Timespec.ptr();
+			this.Ctim = new Timespec.ptr();
+			this.X__unused = arrayType$10.zero();
 			return;
 		}
-		this.Internal = Internal_;
-		this.InternalHigh = InternalHigh_;
-		this.Offset = Offset_;
-		this.OffsetHigh = OffsetHigh_;
-		this.HEvent = HEvent_;
+		this.Dev = Dev_;
+		this.Ino = Ino_;
+		this.Nlink = Nlink_;
+		this.Mode = Mode_;
+		this.Uid = Uid_;
+		this.Gid = Gid_;
+		this.X__pad0 = X__pad0_;
+		this.Rdev = Rdev_;
+		this.Size = Size_;
+		this.Blksize = Blksize_;
+		this.Blocks = Blocks_;
+		this.Atim = Atim_;
+		this.Mtim = Mtim_;
+		this.Ctim = Ctim_;
+		this.X__unused = X__unused_;
 	});
-	Filetime = $pkg.Filetime = $newType(0, $kindStruct, "syscall.Filetime", "Filetime", "syscall", function(LowDateTime_, HighDateTime_) {
+	Dirent = $pkg.Dirent = $newType(0, $kindStruct, "syscall.Dirent", "Dirent", "syscall", function(Ino_, Off_, Reclen_, Type_, Name_, Pad_cgo_0_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.LowDateTime = 0;
-			this.HighDateTime = 0;
+			this.Ino = new $Uint64(0, 0);
+			this.Off = new $Int64(0, 0);
+			this.Reclen = 0;
+			this.Type = 0;
+			this.Name = arrayType$12.zero();
+			this.Pad_cgo_0 = arrayType$13.zero();
 			return;
 		}
-		this.LowDateTime = LowDateTime_;
-		this.HighDateTime = HighDateTime_;
-	});
-	Win32finddata = $pkg.Win32finddata = $newType(0, $kindStruct, "syscall.Win32finddata", "Win32finddata", "syscall", function(FileAttributes_, CreationTime_, LastAccessTime_, LastWriteTime_, FileSizeHigh_, FileSizeLow_, Reserved0_, Reserved1_, FileName_, AlternateFileName_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.FileAttributes = 0;
-			this.CreationTime = new Filetime.ptr();
-			this.LastAccessTime = new Filetime.ptr();
-			this.LastWriteTime = new Filetime.ptr();
-			this.FileSizeHigh = 0;
-			this.FileSizeLow = 0;
-			this.Reserved0 = 0;
-			this.Reserved1 = 0;
-			this.FileName = arrayType$8.zero();
-			this.AlternateFileName = arrayType$9.zero();
-			return;
-		}
-		this.FileAttributes = FileAttributes_;
-		this.CreationTime = CreationTime_;
-		this.LastAccessTime = LastAccessTime_;
-		this.LastWriteTime = LastWriteTime_;
-		this.FileSizeHigh = FileSizeHigh_;
-		this.FileSizeLow = FileSizeLow_;
-		this.Reserved0 = Reserved0_;
-		this.Reserved1 = Reserved1_;
-		this.FileName = FileName_;
-		this.AlternateFileName = AlternateFileName_;
-	});
-	win32finddata1 = $pkg.win32finddata1 = $newType(0, $kindStruct, "syscall.win32finddata1", "win32finddata1", "syscall", function(FileAttributes_, CreationTime_, LastAccessTime_, LastWriteTime_, FileSizeHigh_, FileSizeLow_, Reserved0_, Reserved1_, FileName_, AlternateFileName_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.FileAttributes = 0;
-			this.CreationTime = new Filetime.ptr();
-			this.LastAccessTime = new Filetime.ptr();
-			this.LastWriteTime = new Filetime.ptr();
-			this.FileSizeHigh = 0;
-			this.FileSizeLow = 0;
-			this.Reserved0 = 0;
-			this.Reserved1 = 0;
-			this.FileName = arrayType$10.zero();
-			this.AlternateFileName = arrayType$11.zero();
-			return;
-		}
-		this.FileAttributes = FileAttributes_;
-		this.CreationTime = CreationTime_;
-		this.LastAccessTime = LastAccessTime_;
-		this.LastWriteTime = LastWriteTime_;
-		this.FileSizeHigh = FileSizeHigh_;
-		this.FileSizeLow = FileSizeLow_;
-		this.Reserved0 = Reserved0_;
-		this.Reserved1 = Reserved1_;
-		this.FileName = FileName_;
-		this.AlternateFileName = AlternateFileName_;
-	});
-	ByHandleFileInformation = $pkg.ByHandleFileInformation = $newType(0, $kindStruct, "syscall.ByHandleFileInformation", "ByHandleFileInformation", "syscall", function(FileAttributes_, CreationTime_, LastAccessTime_, LastWriteTime_, VolumeSerialNumber_, FileSizeHigh_, FileSizeLow_, NumberOfLinks_, FileIndexHigh_, FileIndexLow_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.FileAttributes = 0;
-			this.CreationTime = new Filetime.ptr();
-			this.LastAccessTime = new Filetime.ptr();
-			this.LastWriteTime = new Filetime.ptr();
-			this.VolumeSerialNumber = 0;
-			this.FileSizeHigh = 0;
-			this.FileSizeLow = 0;
-			this.NumberOfLinks = 0;
-			this.FileIndexHigh = 0;
-			this.FileIndexLow = 0;
-			return;
-		}
-		this.FileAttributes = FileAttributes_;
-		this.CreationTime = CreationTime_;
-		this.LastAccessTime = LastAccessTime_;
-		this.LastWriteTime = LastWriteTime_;
-		this.VolumeSerialNumber = VolumeSerialNumber_;
-		this.FileSizeHigh = FileSizeHigh_;
-		this.FileSizeLow = FileSizeLow_;
-		this.NumberOfLinks = NumberOfLinks_;
-		this.FileIndexHigh = FileIndexHigh_;
-		this.FileIndexLow = FileIndexLow_;
-	});
-	Win32FileAttributeData = $pkg.Win32FileAttributeData = $newType(0, $kindStruct, "syscall.Win32FileAttributeData", "Win32FileAttributeData", "syscall", function(FileAttributes_, CreationTime_, LastAccessTime_, LastWriteTime_, FileSizeHigh_, FileSizeLow_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.FileAttributes = 0;
-			this.CreationTime = new Filetime.ptr();
-			this.LastAccessTime = new Filetime.ptr();
-			this.LastWriteTime = new Filetime.ptr();
-			this.FileSizeHigh = 0;
-			this.FileSizeLow = 0;
-			return;
-		}
-		this.FileAttributes = FileAttributes_;
-		this.CreationTime = CreationTime_;
-		this.LastAccessTime = LastAccessTime_;
-		this.LastWriteTime = LastWriteTime_;
-		this.FileSizeHigh = FileSizeHigh_;
-		this.FileSizeLow = FileSizeLow_;
-	});
-	reparseDataBuffer = $pkg.reparseDataBuffer = $newType(0, $kindStruct, "syscall.reparseDataBuffer", "reparseDataBuffer", "syscall", function(ReparseTag_, ReparseDataLength_, Reserved_, SubstituteNameOffset_, SubstituteNameLength_, PrintNameOffset_, PrintNameLength_, Flags_, PathBuffer_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.ReparseTag = 0;
-			this.ReparseDataLength = 0;
-			this.Reserved = 0;
-			this.SubstituteNameOffset = 0;
-			this.SubstituteNameLength = 0;
-			this.PrintNameOffset = 0;
-			this.PrintNameLength = 0;
-			this.Flags = 0;
-			this.PathBuffer = arrayType$20.zero();
-			return;
-		}
-		this.ReparseTag = ReparseTag_;
-		this.ReparseDataLength = ReparseDataLength_;
-		this.Reserved = Reserved_;
-		this.SubstituteNameOffset = SubstituteNameOffset_;
-		this.SubstituteNameLength = SubstituteNameLength_;
-		this.PrintNameOffset = PrintNameOffset_;
-		this.PrintNameLength = PrintNameLength_;
-		this.Flags = Flags_;
-		this.PathBuffer = PathBuffer_;
+		this.Ino = Ino_;
+		this.Off = Off_;
+		this.Reclen = Reclen_;
+		this.Type = Type_;
+		this.Name = Name_;
+		this.Pad_cgo_0 = Pad_cgo_0_;
 	});
 	sliceType = $sliceType($Uint8);
-	ptrType = $ptrType($Uint16);
-	arrayType = $arrayType($Uint16, 8192);
-	ptrType$1 = $ptrType(arrayType);
-	arrayType$1 = $arrayType(ptrType$1, 8192);
-	ptrType$2 = $ptrType(arrayType$1);
-	ptrType$3 = $ptrType(DLL);
-	ptrType$4 = $ptrType(Proc);
-	ptrType$5 = $ptrType(LazyDLL);
-	sliceType$2 = $sliceType($Uint16);
-	sliceType$3 = $sliceType($Int32);
-	ptrType$6 = $ptrType(ptrType);
-	ptrType$10 = $ptrType(SecurityAttributes);
-	ptrType$11 = $ptrType($Uint32);
-	ptrType$15 = $ptrType($Uint8);
-	arrayType$2 = $arrayType($Uint8, 32);
-	ptrType$18 = $ptrType(Overlapped);
-	ptrType$19 = $ptrType($Int32);
-	ptrType$20 = $ptrType(Filetime);
-	ptrType$27 = $ptrType(DLLError);
-	sliceType$6 = $sliceType($Uintptr);
-	ptrType$28 = $ptrType(LazyProc);
-	arrayType$8 = $arrayType($Uint16, 259);
-	arrayType$9 = $arrayType($Uint16, 13);
-	arrayType$10 = $arrayType($Uint16, 260);
-	arrayType$11 = $arrayType($Uint16, 14);
-	arrayType$20 = $arrayType($Uint16, 1);
+	sliceType$1 = $sliceType($String);
+	ptrType = $ptrType($Uint8);
+	arrayType$1 = $arrayType($Uint8, 32);
+	structType = $structType([{prop: "addr", name: "addr", pkg: "syscall", typ: $Uintptr, tag: ""}, {prop: "len", name: "len", pkg: "syscall", typ: $Int, tag: ""}, {prop: "cap", name: "cap", pkg: "syscall", typ: $Int, tag: ""}]);
+	ptrType$22 = $ptrType(mmapper);
+	mapType = $mapType(ptrType, sliceType);
+	funcType = $funcType([$Uintptr, $Uintptr, $Int, $Int, $Int, $Int64], [$Uintptr, $error], false);
+	funcType$1 = $funcType([$Uintptr, $Uintptr], [$error], false);
+	ptrType$26 = $ptrType(Timespec);
+	arrayType$10 = $arrayType($Int64, 3);
+	arrayType$12 = $arrayType($Int8, 256);
+	arrayType$13 = $arrayType($Uint8, 5);
 	init = function() {
 		var $ptr;
 		$flushConsole = (function() {
@@ -3315,336 +3225,165 @@ $packages["syscall"] = (function() {
 	use = function(p) {
 		var $ptr, p;
 	};
-	Syscall = function(trap, nargs, a1, a2, a3) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, a1, a2, a3, err, nargs, r1, r2, trap;
+	runtime_envs = function() {
+		var $ptr, envkeys, envs$1, i, jsEnv, key, process;
+		process = $global.process;
+		if (process === undefined) {
+			return sliceType$1.nil;
+		}
+		jsEnv = process.env;
+		envkeys = $global.Object.keys(jsEnv);
+		envs$1 = $makeSlice(sliceType$1, $parseInt(envkeys.length));
+		i = 0;
+		while (true) {
+			if (!(i < $parseInt(envkeys.length))) { break; }
+			key = $internalize(envkeys[i], $String);
+			((i < 0 || i >= envs$1.$length) ? $throwRuntimeError("index out of range") : envs$1.$array[envs$1.$offset + i] = key + "=" + $internalize(jsEnv[$externalize(key, $String)], $String));
+			i = i + (1) >> 0;
+		}
+		return envs$1;
+	};
+	syscall = function(name) {
+		var $ptr, name, require, $deferred;
+		/* */ var $err = null; try { $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
+		$deferred.push([(function() {
+			var $ptr;
+			$recover();
+		}), []]);
+		if (syscallModule === null) {
+			if (alreadyTriedToLoad) {
+				return null;
+			}
+			alreadyTriedToLoad = true;
+			require = $global.require;
+			if (require === undefined) {
+				$panic(new $String(""));
+			}
+			syscallModule = require($externalize("syscall", $String));
+		}
+		return syscallModule[$externalize(name, $String)];
+		/* */ } catch(err) { $err = err; return null; } finally { $callDeferred($deferred, $err); }
+	};
+	Syscall = function(trap, a1, a2, a3) {
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tmp$8, a1, a2, a3, array, err, f, r, r1, r2, slice, trap;
 		r1 = 0;
 		r2 = 0;
 		err = 0;
+		f = syscall("Syscall");
+		if (!(f === null)) {
+			r = f(trap, a1, a2, a3);
+			_tmp = (($parseInt(r[0]) >> 0) >>> 0); _tmp$1 = (($parseInt(r[1]) >> 0) >>> 0); _tmp$2 = (($parseInt(r[2]) >> 0) >>> 0); r1 = _tmp; r2 = _tmp$1; err = _tmp$2;
+			return [r1, r2, err];
+		}
+		if ((trap === 1) && ((a1 === 1) || (a1 === 2))) {
+			array = a2;
+			slice = $makeSlice(sliceType, $parseInt(array.length));
+			slice.$array = array;
+			printToConsole(slice);
+			_tmp$3 = ($parseInt(array.length) >>> 0); _tmp$4 = 0; _tmp$5 = 0; r1 = _tmp$3; r2 = _tmp$4; err = _tmp$5;
+			return [r1, r2, err];
+		}
 		printWarning();
-		_tmp = (minusOne >>> 0); _tmp$1 = 0; _tmp$2 = 536870913; r1 = _tmp; r2 = _tmp$1; err = _tmp$2;
+		_tmp$6 = (minusOne >>> 0); _tmp$7 = 0; _tmp$8 = 13; r1 = _tmp$6; r2 = _tmp$7; err = _tmp$8;
 		return [r1, r2, err];
 	};
 	$pkg.Syscall = Syscall;
-	Syscall6 = function(trap, nargs, a1, a2, a3, a4, a5, a6) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, a1, a2, a3, a4, a5, a6, err, nargs, r1, r2, trap;
+	Syscall6 = function(trap, a1, a2, a3, a4, a5, a6) {
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, a1, a2, a3, a4, a5, a6, err, f, r, r1, r2, trap;
 		r1 = 0;
 		r2 = 0;
 		err = 0;
-		printWarning();
-		_tmp = (minusOne >>> 0); _tmp$1 = 0; _tmp$2 = 536870913; r1 = _tmp; r2 = _tmp$1; err = _tmp$2;
+		f = syscall("Syscall6");
+		if (!(f === null)) {
+			r = f(trap, a1, a2, a3, a4, a5, a6);
+			_tmp = (($parseInt(r[0]) >> 0) >>> 0); _tmp$1 = (($parseInt(r[1]) >> 0) >>> 0); _tmp$2 = (($parseInt(r[2]) >> 0) >>> 0); r1 = _tmp; r2 = _tmp$1; err = _tmp$2;
+			return [r1, r2, err];
+		}
+		if (!((trap === 202))) {
+			printWarning();
+		}
+		_tmp$3 = (minusOne >>> 0); _tmp$4 = 0; _tmp$5 = 13; r1 = _tmp$3; r2 = _tmp$4; err = _tmp$5;
 		return [r1, r2, err];
 	};
 	$pkg.Syscall6 = Syscall6;
-	Syscall9 = function(trap, nargs, a1, a2, a3, a4, a5, a6, a7, a8, a9) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, a1, a2, a3, a4, a5, a6, a7, a8, a9, err, nargs, r1, r2, trap;
-		r1 = 0;
-		r2 = 0;
-		err = 0;
-		printWarning();
-		_tmp = (minusOne >>> 0); _tmp$1 = 0; _tmp$2 = 536870913; r1 = _tmp; r2 = _tmp$1; err = _tmp$2;
-		return [r1, r2, err];
-	};
-	$pkg.Syscall9 = Syscall9;
-	Syscall12 = function(trap, nargs, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, a1, a10, a11, a12, a2, a3, a4, a5, a6, a7, a8, a9, err, nargs, r1, r2, trap;
-		r1 = 0;
-		r2 = 0;
-		err = 0;
-		printWarning();
-		_tmp = (minusOne >>> 0); _tmp$1 = 0; _tmp$2 = 536870913; r1 = _tmp; r2 = _tmp$1; err = _tmp$2;
-		return [r1, r2, err];
-	};
-	$pkg.Syscall12 = Syscall12;
-	Syscall15 = function(trap, nargs, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, a1, a10, a11, a12, a13, a14, a15, a2, a3, a4, a5, a6, a7, a8, a9, err, nargs, r1, r2, trap;
-		r1 = 0;
-		r2 = 0;
-		err = 0;
-		printWarning();
-		_tmp = (minusOne >>> 0); _tmp$1 = 0; _tmp$2 = 536870913; r1 = _tmp; r2 = _tmp$1; err = _tmp$2;
-		return [r1, r2, err];
-	};
-	$pkg.Syscall15 = Syscall15;
-	getprocaddress = function(handle, procname) {
-		var $ptr, _tmp, _tmp$1, err, handle, proc, procname;
-		proc = 0;
-		err = 0;
-		printWarning();
-		_tmp = (minusOne >>> 0); _tmp$1 = 536870913; proc = _tmp; err = _tmp$1;
-		return [proc, err];
-	};
-	LazyDLL.ptr.prototype.Load = function() {
-		var $ptr, d;
-		d = this;
-		return new DLLError.ptr($ifaceNil, "", "system calls not available, see https://github.com/gopherjs/gopherjs/blob/master/doc/syscalls.md");
-	};
-	LazyDLL.prototype.Load = function() { return this.$val.Load(); };
-	LazyProc.ptr.prototype.Find = function() {
-		var $ptr, p;
-		p = this;
-		return new DLLError.ptr($ifaceNil, "", "system calls not available, see https://github.com/gopherjs/gopherjs/blob/master/doc/syscalls.md");
-	};
-	LazyProc.prototype.Find = function() { return this.$val.Find(); };
-	getStdHandle = function(h) {
-		var $ptr, fd, h;
-		fd = 0;
-		if (h === -11) {
-			fd = 1;
-			return fd;
+	BytePtrFromString = function(s) {
+		var $ptr, _i, _ref, array, b, i, s;
+		array = new ($global.Uint8Array)(s.length + 1 >> 0);
+		_ref = new sliceType($stringToBytes(s));
+		_i = 0;
+		while (true) {
+			if (!(_i < _ref.$length)) { break; }
+			i = _i;
+			b = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			if (b === 0) {
+				return [ptrType.nil, new Errno(22)];
+			}
+			array[i] = b;
+			_i++;
 		}
-		if (h === -12) {
-			fd = 2;
-			return fd;
+		array[s.length] = 0;
+		return [array, $ifaceNil];
+	};
+	$pkg.BytePtrFromString = BytePtrFromString;
+	copyenv = function() {
+		var $ptr, _entry, _i, _key, _ref, _tuple, i, j, key, ok, s;
+		env = new $Map();
+		_ref = envs;
+		_i = 0;
+		while (true) {
+			if (!(_i < _ref.$length)) { break; }
+			i = _i;
+			s = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			j = 0;
+			while (true) {
+				if (!(j < s.length)) { break; }
+				if (s.charCodeAt(j) === 61) {
+					key = s.substring(0, j);
+					_tuple = (_entry = env[key], _entry !== undefined ? [_entry.v, true] : [0, false]); ok = _tuple[1];
+					if (!ok) {
+						_key = key; (env || $throwRuntimeError("assignment to entry in nil map"))[_key] = { k: _key, v: i };
+					} else {
+						((i < 0 || i >= envs.$length) ? $throwRuntimeError("index out of range") : envs.$array[envs.$offset + i] = "");
+					}
+					break;
+				}
+				j = j + (1) >> 0;
+			}
+			_i++;
 		}
-		fd = 0;
-		return fd;
 	};
-	GetConsoleMode = function(console, mode) {
-		var $ptr, console, err, mode, x;
-		err = $ifaceNil;
-		err = (x = new DummyError.ptr(), new x.constructor.elem(x));
-		return err;
-	};
-	$pkg.GetConsoleMode = GetConsoleMode;
-	WriteFile = function(handle, buf, done, overlapped) {
-		var $ptr, buf, done, err, handle, overlapped;
-		err = $ifaceNil;
-		if ((handle === 1) || (handle === 2)) {
-			printToConsole(buf);
-			done.$set((buf.$length >>> 0));
-			err = $ifaceNil;
-			return err;
-		}
-		printWarning();
-		err = $ifaceNil;
-		return err;
-	};
-	$pkg.WriteFile = WriteFile;
-	GetCommandLine = function() {
-		var $ptr, cmd;
-		cmd = ptrType.nil;
-		return cmd;
-	};
-	$pkg.GetCommandLine = GetCommandLine;
-	CommandLineToArgv = function(cmd, argc) {
-		var $ptr, _tmp, _tmp$1, argc, argv, cmd, err, x;
-		argv = ptrType$2.nil;
-		err = $ifaceNil;
-		_tmp = ptrType$2.nil; _tmp$1 = (x = new DummyError.ptr(), new x.constructor.elem(x)); argv = _tmp; err = _tmp$1;
-		return [argv, err];
-	};
-	$pkg.CommandLineToArgv = CommandLineToArgv;
 	Getenv = function(key) {
-		var $ptr, _tmp, _tmp$1, found, key, value;
+		var $ptr, _entry, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tuple, found, i, i$1, key, ok, s, value, $s, $deferred, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tmp$6 = $f._tmp$6; _tmp$7 = $f._tmp$7; _tuple = $f._tuple; found = $f.found; i = $f.i; i$1 = $f.i$1; key = $f.key; ok = $f.ok; s = $f.s; value = $f.value; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
 		value = "";
 		found = false;
-		_tmp = ""; _tmp$1 = false; value = _tmp; found = _tmp$1;
+		$r = envOnce.Do(copyenv); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		if (key.length === 0) {
+			_tmp = ""; _tmp$1 = false; value = _tmp; found = _tmp$1;
+			return [value, found];
+		}
+		$r = envLock.RLock(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$deferred.push([$methodVal(envLock, "RUnlock"), []]);
+		_tuple = (_entry = env[key], _entry !== undefined ? [_entry.v, true] : [0, false]); i = _tuple[0]; ok = _tuple[1];
+		if (!ok) {
+			_tmp$2 = ""; _tmp$3 = false; value = _tmp$2; found = _tmp$3;
+			return [value, found];
+		}
+		s = ((i < 0 || i >= envs.$length) ? $throwRuntimeError("index out of range") : envs.$array[envs.$offset + i]);
+		i$1 = 0;
+		while (true) {
+			if (!(i$1 < s.length)) { break; }
+			if (s.charCodeAt(i$1) === 61) {
+				_tmp$4 = s.substring((i$1 + 1 >> 0)); _tmp$5 = true; value = _tmp$4; found = _tmp$5;
+				return [value, found];
+			}
+			i$1 = i$1 + (1) >> 0;
+		}
+		_tmp$6 = ""; _tmp$7 = false; value = _tmp$6; found = _tmp$7;
 		return [value, found];
+		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [value, found]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: Getenv }; } $f.$ptr = $ptr; $f._entry = _entry; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tmp$6 = _tmp$6; $f._tmp$7 = _tmp$7; $f._tuple = _tuple; $f.found = found; $f.i = i; $f.i$1 = i$1; $f.key = key; $f.ok = ok; $f.s = s; $f.value = value; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	$pkg.Getenv = Getenv;
-	DummyError.ptr.prototype.Error = function() {
-		var $ptr, e;
-		e = $clone(this, DummyError);
-		return "";
-	};
-	DummyError.prototype.Error = function() { return this.$val.Error(); };
-	DLLError.ptr.prototype.Error = function() {
-		var $ptr, e;
-		e = this;
-		return e.Msg;
-	};
-	DLLError.prototype.Error = function() { return this.$val.Error(); };
-	DLL.ptr.prototype.FindProc = function(name) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, _tuple$1, a, d, e, err, name, namep, p, proc;
-		proc = ptrType$4.nil;
-		err = $ifaceNil;
-		d = this;
-		_tuple = BytePtrFromString(name); namep = _tuple[0]; err = _tuple[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			_tmp = ptrType$4.nil; _tmp$1 = err; proc = _tmp; err = _tmp$1;
-			return [proc, err];
-		}
-		_tuple$1 = getprocaddress((d.Handle >>> 0), namep); a = _tuple$1[0]; e = _tuple$1[1];
-		use(namep);
-		if (!((e === 0))) {
-			_tmp$2 = ptrType$4.nil; _tmp$3 = new DLLError.ptr(new Errno(e), name, "Failed to find " + name + " procedure in " + d.Name + ": " + new Errno(e).Error()); proc = _tmp$2; err = _tmp$3;
-			return [proc, err];
-		}
-		p = new Proc.ptr(d, name, a);
-		_tmp$4 = p; _tmp$5 = $ifaceNil; proc = _tmp$4; err = _tmp$5;
-		return [proc, err];
-	};
-	DLL.prototype.FindProc = function(name) { return this.$val.FindProc(name); };
-	DLL.ptr.prototype.MustFindProc = function(name) {
-		var $ptr, _tuple, d, e, name, p;
-		d = this;
-		_tuple = d.FindProc(name); p = _tuple[0]; e = _tuple[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			$panic(e);
-		}
-		return p;
-	};
-	DLL.prototype.MustFindProc = function(name) { return this.$val.MustFindProc(name); };
-	DLL.ptr.prototype.Release = function() {
-		var $ptr, d, err;
-		err = $ifaceNil;
-		d = this;
-		err = FreeLibrary(d.Handle);
-		return err;
-	};
-	DLL.prototype.Release = function() { return this.$val.Release(); };
-	Proc.ptr.prototype.Addr = function() {
-		var $ptr, p;
-		p = this;
-		return p.addr;
-	};
-	Proc.prototype.Addr = function() { return this.$val.Addr(); };
-	Proc.ptr.prototype.Call = function(a) {
-		var $ptr, _ref, _tuple, _tuple$1, _tuple$10, _tuple$11, _tuple$12, _tuple$13, _tuple$14, _tuple$15, _tuple$2, _tuple$3, _tuple$4, _tuple$5, _tuple$6, _tuple$7, _tuple$8, _tuple$9, a, lastErr, p, r1, r2;
-		r1 = 0;
-		r2 = 0;
-		lastErr = $ifaceNil;
-		p = this;
-		_ref = a.$length;
-		if (_ref === 0) {
-			_tuple = Syscall(p.Addr(), (a.$length >>> 0), 0, 0, 0); r1 = _tuple[0]; r2 = _tuple[1]; lastErr = new Errno(_tuple[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 1) {
-			_tuple$1 = Syscall(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), 0, 0); r1 = _tuple$1[0]; r2 = _tuple$1[1]; lastErr = new Errno(_tuple$1[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 2) {
-			_tuple$2 = Syscall(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), 0); r1 = _tuple$2[0]; r2 = _tuple$2[1]; lastErr = new Errno(_tuple$2[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 3) {
-			_tuple$3 = Syscall(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2])); r1 = _tuple$3[0]; r2 = _tuple$3[1]; lastErr = new Errno(_tuple$3[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 4) {
-			_tuple$4 = Syscall6(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), 0, 0); r1 = _tuple$4[0]; r2 = _tuple$4[1]; lastErr = new Errno(_tuple$4[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 5) {
-			_tuple$5 = Syscall6(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), 0); r1 = _tuple$5[0]; r2 = _tuple$5[1]; lastErr = new Errno(_tuple$5[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 6) {
-			_tuple$6 = Syscall6(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5])); r1 = _tuple$6[0]; r2 = _tuple$6[1]; lastErr = new Errno(_tuple$6[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 7) {
-			_tuple$7 = Syscall9(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), 0, 0); r1 = _tuple$7[0]; r2 = _tuple$7[1]; lastErr = new Errno(_tuple$7[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 8) {
-			_tuple$8 = Syscall9(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), 0); r1 = _tuple$8[0]; r2 = _tuple$8[1]; lastErr = new Errno(_tuple$8[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 9) {
-			_tuple$9 = Syscall9(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), (8 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 8])); r1 = _tuple$9[0]; r2 = _tuple$9[1]; lastErr = new Errno(_tuple$9[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 10) {
-			_tuple$10 = Syscall12(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), (8 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 8]), (9 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 9]), 0, 0); r1 = _tuple$10[0]; r2 = _tuple$10[1]; lastErr = new Errno(_tuple$10[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 11) {
-			_tuple$11 = Syscall12(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), (8 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 8]), (9 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 9]), (10 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 10]), 0); r1 = _tuple$11[0]; r2 = _tuple$11[1]; lastErr = new Errno(_tuple$11[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 12) {
-			_tuple$12 = Syscall12(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), (8 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 8]), (9 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 9]), (10 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 10]), (11 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 11])); r1 = _tuple$12[0]; r2 = _tuple$12[1]; lastErr = new Errno(_tuple$12[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 13) {
-			_tuple$13 = Syscall15(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), (8 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 8]), (9 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 9]), (10 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 10]), (11 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 11]), (12 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 12]), 0, 0); r1 = _tuple$13[0]; r2 = _tuple$13[1]; lastErr = new Errno(_tuple$13[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 14) {
-			_tuple$14 = Syscall15(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), (8 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 8]), (9 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 9]), (10 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 10]), (11 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 11]), (12 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 12]), (13 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 13]), 0); r1 = _tuple$14[0]; r2 = _tuple$14[1]; lastErr = new Errno(_tuple$14[2]);
-			return [r1, r2, lastErr];
-		} else if (_ref === 15) {
-			_tuple$15 = Syscall15(p.Addr(), (a.$length >>> 0), (0 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 0]), (1 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 1]), (2 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 2]), (3 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 3]), (4 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 4]), (5 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 5]), (6 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 6]), (7 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 7]), (8 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 8]), (9 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 9]), (10 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 10]), (11 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 11]), (12 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 12]), (13 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 13]), (14 >= a.$length ? $throwRuntimeError("index out of range") : a.$array[a.$offset + 14])); r1 = _tuple$15[0]; r2 = _tuple$15[1]; lastErr = new Errno(_tuple$15[2]);
-			return [r1, r2, lastErr];
-		} else {
-			$panic(new $String("Call " + p.Name + " with too many arguments " + itoa(a.$length) + "."));
-		}
-		return [r1, r2, lastErr];
-	};
-	Proc.prototype.Call = function(a) { return this.$val.Call(a); };
-	LazyDLL.ptr.prototype.mustLoad = function() {
-		var $ptr, d, e;
-		d = this;
-		e = d.Load();
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			$panic(e);
-		}
-	};
-	LazyDLL.prototype.mustLoad = function() { return this.$val.mustLoad(); };
-	LazyDLL.ptr.prototype.Handle = function() {
-		var $ptr, d;
-		d = this;
-		d.mustLoad();
-		return (d.dll.Handle >>> 0);
-	};
-	LazyDLL.prototype.Handle = function() { return this.$val.Handle(); };
-	LazyDLL.ptr.prototype.NewProc = function(name) {
-		var $ptr, d, name;
-		d = this;
-		return new LazyProc.ptr(new sync.Mutex.ptr(), name, d, ptrType$4.nil);
-	};
-	LazyDLL.prototype.NewProc = function(name) { return this.$val.NewProc(name); };
-	NewLazyDLL = function(name) {
-		var $ptr, name;
-		return new LazyDLL.ptr(new sync.Mutex.ptr(), ptrType$3.nil, name);
-	};
-	$pkg.NewLazyDLL = NewLazyDLL;
-	LazyProc.ptr.prototype.mustFind = function() {
-		var $ptr, e, p;
-		p = this;
-		e = p.Find();
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			$panic(e);
-		}
-	};
-	LazyProc.prototype.mustFind = function() { return this.$val.mustFind(); };
-	LazyProc.ptr.prototype.Addr = function() {
-		var $ptr, p;
-		p = this;
-		p.mustFind();
-		return p.proc.Addr();
-	};
-	LazyProc.prototype.Addr = function() { return this.$val.Addr(); };
-	LazyProc.ptr.prototype.Call = function(a) {
-		var $ptr, _tuple, a, lastErr, p, r1, r2;
-		r1 = 0;
-		r2 = 0;
-		lastErr = $ifaceNil;
-		p = this;
-		p.mustFind();
-		_tuple = p.proc.Call(a); r1 = _tuple[0]; r2 = _tuple[1]; lastErr = _tuple[2];
-		return [r1, r2, lastErr];
-	};
-	LazyProc.prototype.Call = function(a) { return this.$val.Call(a); };
-	FullPath = function(name) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tmp$8, _tmp$9, _tuple, _tuple$1, _tuple$2, buf, err, n, name, p, path;
-		path = "";
-		err = $ifaceNil;
-		_tuple = UTF16PtrFromString(name); p = _tuple[0]; err = _tuple[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			_tmp = ""; _tmp$1 = err; path = _tmp; err = _tmp$1;
-			return [path, err];
-		}
-		buf = $makeSlice(sliceType$2, 100);
-		_tuple$1 = GetFullPathName(p, (buf.$length >>> 0), $indexPtr(buf.$array, buf.$offset + 0, ptrType), ptrType$6.nil); n = _tuple$1[0]; err = _tuple$1[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			_tmp$2 = ""; _tmp$3 = err; path = _tmp$2; err = _tmp$3;
-			return [path, err];
-		}
-		if (n > (buf.$length >>> 0)) {
-			buf = $makeSlice(sliceType$2, n);
-			_tuple$2 = GetFullPathName(p, (buf.$length >>> 0), $indexPtr(buf.$array, buf.$offset + 0, ptrType), ptrType$6.nil); n = _tuple$2[0]; err = _tuple$2[1];
-			if (!($interfaceIsEqual(err, $ifaceNil))) {
-				_tmp$4 = ""; _tmp$5 = err; path = _tmp$4; err = _tmp$5;
-				return [path, err];
-			}
-			if (n > (buf.$length >>> 0)) {
-				_tmp$6 = ""; _tmp$7 = new Errno(536870951); path = _tmp$6; err = _tmp$7;
-				return [path, err];
-			}
-		}
-		_tmp$8 = UTF16ToString($subslice(buf, 0, n)); _tmp$9 = $ifaceNil; path = _tmp$8; err = _tmp$9;
-		return [path, err];
-	};
-	$pkg.FullPath = FullPath;
 	itoa = function(val) {
 		var $ptr, val;
 		if (val < 0) {
@@ -3654,7 +3393,7 @@ $packages["syscall"] = (function() {
 	};
 	uitoa = function(val) {
 		var $ptr, _q, _r, buf, i, val;
-		buf = $clone(arrayType$2.zero(), arrayType$2);
+		buf = $clone(arrayType$1.zero(), arrayType$1);
 		i = 31;
 		while (true) {
 			if (!(val >= 10)) { break; }
@@ -3665,771 +3404,405 @@ $packages["syscall"] = (function() {
 		((i < 0 || i >= buf.length) ? $throwRuntimeError("index out of range") : buf[i] = ((val + 48 >>> 0) << 24 >>> 24));
 		return $bytesToString($subslice(new sliceType(buf), i));
 	};
-	ByteSliceFromString = function(s) {
-		var $ptr, a, i, s;
+	Timespec.ptr.prototype.Unix = function() {
+		var $ptr, _tmp, _tmp$1, nsec, sec, ts;
+		sec = new $Int64(0, 0);
+		nsec = new $Int64(0, 0);
+		ts = this;
+		_tmp = ts.Sec; _tmp$1 = ts.Nsec; sec = _tmp; nsec = _tmp$1;
+		return [sec, nsec];
+	};
+	Timespec.prototype.Unix = function() { return this.$val.Unix(); };
+	Timespec.ptr.prototype.Nano = function() {
+		var $ptr, ts, x, x$1;
+		ts = this;
+		return (x = $mul64(ts.Sec, new $Int64(0, 1000000000)), x$1 = ts.Nsec, new $Int64(x.$high + x$1.$high, x.$low + x$1.$low));
+	};
+	Timespec.prototype.Nano = function() { return this.$val.Nano(); };
+	clen = function(n) {
+		var $ptr, i, n;
 		i = 0;
 		while (true) {
-			if (!(i < s.length)) { break; }
-			if (s.charCodeAt(i) === 0) {
-				return [sliceType.nil, new Errno(536870951)];
+			if (!(i < n.$length)) { break; }
+			if (((i < 0 || i >= n.$length) ? $throwRuntimeError("index out of range") : n.$array[n.$offset + i]) === 0) {
+				return i;
 			}
 			i = i + (1) >> 0;
 		}
-		a = $makeSlice(sliceType, (s.length + 1 >> 0));
-		$copyString(a, s);
-		return [a, $ifaceNil];
+		return n.$length;
 	};
-	$pkg.ByteSliceFromString = ByteSliceFromString;
-	BytePtrFromString = function(s) {
-		var $ptr, _tuple, a, err, s;
-		_tuple = ByteSliceFromString(s); a = _tuple[0]; err = _tuple[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			return [ptrType$15.nil, err];
-		}
-		return [$indexPtr(a.$array, a.$offset + 0, ptrType$15), $ifaceNil];
+	ReadDirent = function(fd, buf) {
+		var $ptr, _tuple, buf, err, fd, n;
+		n = 0;
+		err = $ifaceNil;
+		_tuple = Getdents(fd, buf); n = _tuple[0]; err = _tuple[1];
+		return [n, err];
 	};
-	$pkg.BytePtrFromString = BytePtrFromString;
-	StringToUTF16 = function(s) {
-		var $ptr, _tuple, a, err, s;
-		_tuple = UTF16FromString(s); a = _tuple[0]; err = _tuple[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			$panic(new $String("syscall: string with NUL passed to StringToUTF16"));
-		}
-		return a;
-	};
-	$pkg.StringToUTF16 = StringToUTF16;
-	UTF16FromString = function(s) {
-		var $ptr, i, s;
-		i = 0;
+	$pkg.ReadDirent = ReadDirent;
+	ParseDirent = function(buf, max, names) {
+		var $ptr, _array, _struct, _tmp, _tmp$1, _tmp$2, _view, buf, bytes$1, consumed, count, dirent, max, name, names, newnames, origlen, x;
+		consumed = 0;
+		count = 0;
+		newnames = sliceType$1.nil;
+		origlen = buf.$length;
+		count = 0;
 		while (true) {
-			if (!(i < s.length)) { break; }
-			if (s.charCodeAt(i) === 0) {
-				return [sliceType$2.nil, new Errno(536870951)];
+			if (!(!((max === 0)) && buf.$length > 0)) { break; }
+			dirent = (_array = $sliceToArray(buf), _struct = new Dirent.ptr(), _view = new DataView(_array.buffer, _array.byteOffset), _struct.Ino = new $Uint64(_view.getUint32(4, true), _view.getUint32(0, true)), _struct.Off = new $Int64(_view.getUint32(12, true), _view.getUint32(8, true)), _struct.Reclen = _view.getUint16(16, true), _struct.Type = _view.getUint8(18, true), _struct.Name = new ($nativeArray($kindInt8))(_array.buffer, $min(_array.byteOffset + 19, _array.buffer.byteLength)), _struct.Pad_cgo_0 = new ($nativeArray($kindUint8))(_array.buffer, $min(_array.byteOffset + 275, _array.buffer.byteLength)), _struct);
+			buf = $subslice(buf, dirent.Reclen);
+			if ((x = dirent.Ino, (x.$high === 0 && x.$low === 0))) {
+				continue;
 			}
-			i = i + (1) >> 0;
-		}
-		return [utf16.Encode(new sliceType$3($stringToRunes(s + "\x00"))), $ifaceNil];
-	};
-	$pkg.UTF16FromString = UTF16FromString;
-	UTF16ToString = function(s) {
-		var $ptr, _i, _ref, i, s, v;
-		_ref = s;
-		_i = 0;
-		while (true) {
-			if (!(_i < _ref.$length)) { break; }
-			i = _i;
-			v = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			if (v === 0) {
-				s = $subslice(s, 0, i);
-				break;
+			bytes$1 = $sliceToArray(new sliceType(dirent.Name));
+			name = $bytesToString($subslice(new sliceType(bytes$1), 0, clen(new sliceType(bytes$1))));
+			if (name === "." || name === "..") {
+				continue;
 			}
-			_i++;
+			max = max - (1) >> 0;
+			count = count + (1) >> 0;
+			names = $append(names, name);
 		}
-		return $runesToString(utf16.Decode(s));
+		_tmp = origlen - buf.$length >> 0; _tmp$1 = count; _tmp$2 = names; consumed = _tmp; count = _tmp$1; newnames = _tmp$2;
+		return [consumed, count, newnames];
 	};
-	$pkg.UTF16ToString = UTF16ToString;
-	StringToUTF16Ptr = function(s) {
-		var $ptr, s, x;
-		return (x = StringToUTF16(s), $indexPtr(x.$array, x.$offset + 0, ptrType));
-	};
-	$pkg.StringToUTF16Ptr = StringToUTF16Ptr;
-	UTF16PtrFromString = function(s) {
-		var $ptr, _tuple, a, err, s;
-		_tuple = UTF16FromString(s); a = _tuple[0]; err = _tuple[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			return [ptrType.nil, err];
+	$pkg.ParseDirent = ParseDirent;
+	mmapper.ptr.prototype.Mmap = function(fd, offset, length, prot, flags) {
+		var $ptr, _key, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, addr, b, data, err, errno, fd, flags, length, m, offset, p, prot, sl, $s, $deferred, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _key = $f._key; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tuple = $f._tuple; addr = $f.addr; b = $f.b; data = $f.data; err = $f.err; errno = $f.errno; fd = $f.fd; flags = $f.flags; length = $f.length; m = $f.m; offset = $f.offset; p = $f.p; prot = $f.prot; sl = $f.sl; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
+		sl = [sl];
+		data = sliceType.nil;
+		err = $ifaceNil;
+		m = this;
+		if (length <= 0) {
+			_tmp = sliceType.nil; _tmp$1 = new Errno(22); data = _tmp; err = _tmp$1;
+			return [data, err];
 		}
-		return [$indexPtr(a.$array, a.$offset + 0, ptrType), $ifaceNil];
+		_r = m.mmap(0, (length >>> 0), prot, flags, fd, offset); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_tuple = _r; addr = _tuple[0]; errno = _tuple[1];
+		if (!($interfaceIsEqual(errno, $ifaceNil))) {
+			_tmp$2 = sliceType.nil; _tmp$3 = errno; data = _tmp$2; err = _tmp$3;
+			return [data, err];
+		}
+		sl[0] = new structType.ptr(addr, length, length);
+		b = sl[0];
+		p = $indexPtr(b.$array, b.$offset + (b.$capacity - 1 >> 0), ptrType);
+		$r = m.Mutex.Lock(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$deferred.push([$methodVal(m.Mutex, "Unlock"), []]);
+		_key = p; (m.active || $throwRuntimeError("assignment to entry in nil map"))[_key.$key()] = { k: _key, v: b };
+		_tmp$4 = b; _tmp$5 = $ifaceNil; data = _tmp$4; err = _tmp$5;
+		return [data, err];
+		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [data, err]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: mmapper.ptr.prototype.Mmap }; } $f.$ptr = $ptr; $f._key = _key; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple = _tuple; $f.addr = addr; $f.b = b; $f.data = data; $f.err = err; $f.errno = errno; $f.fd = fd; $f.flags = flags; $f.length = length; $f.m = m; $f.offset = offset; $f.p = p; $f.prot = prot; $f.sl = sl; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
-	$pkg.UTF16PtrFromString = UTF16PtrFromString;
-	langid = function(pri, sub) {
-		var $ptr, pri, sub;
-		return (((sub >>> 0) << 10 >>> 0) | (pri >>> 0)) >>> 0;
+	mmapper.prototype.Mmap = function(fd, offset, length, prot, flags) { return this.$val.Mmap(fd, offset, length, prot, flags); };
+	mmapper.ptr.prototype.Munmap = function(data) {
+		var $ptr, _entry, _r, b, data, err, errno, m, p, $s, $deferred, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _r = $f._r; b = $f.b; data = $f.data; err = $f.err; errno = $f.errno; m = $f.m; p = $f.p; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
+		err = $ifaceNil;
+		m = this;
+		if ((data.$length === 0) || !((data.$length === data.$capacity))) {
+			err = new Errno(22);
+			return err;
+		}
+		p = $indexPtr(data.$array, data.$offset + (data.$capacity - 1 >> 0), ptrType);
+		$r = m.Mutex.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$deferred.push([$methodVal(m.Mutex, "Unlock"), []]);
+		b = (_entry = m.active[p.$key()], _entry !== undefined ? _entry.v : sliceType.nil);
+		if (b === sliceType.nil || !($indexPtr(b.$array, b.$offset + 0, ptrType) === $indexPtr(data.$array, data.$offset + 0, ptrType))) {
+			err = new Errno(22);
+			return err;
+		}
+		_r = m.munmap($sliceToArray(b), (b.$length >>> 0)); /* */ $s = 2; case 2: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		errno = _r;
+		/* */ if (!($interfaceIsEqual(errno, $ifaceNil))) { $s = 3; continue; }
+		/* */ $s = 4; continue;
+		/* if (!($interfaceIsEqual(errno, $ifaceNil))) { */ case 3:
+			err = errno;
+			return err;
+		/* } */ case 4:
+		delete m.active[p.$key()];
+		err = $ifaceNil;
+		return err;
+		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  err; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: mmapper.ptr.prototype.Munmap }; } $f.$ptr = $ptr; $f._entry = _entry; $f._r = _r; $f.b = b; $f.data = data; $f.err = err; $f.errno = errno; $f.m = m; $f.p = p; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
+	mmapper.prototype.Munmap = function(data) { return this.$val.Munmap(data); };
 	Errno.prototype.Error = function() {
-		var $ptr, _tuple, _tuple$1, b, e, err, flags, idx, n, x, x$1;
+		var $ptr, e, s;
 		e = this.$val;
-		idx = ((e - 536870912 >>> 0) >> 0);
-		if (0 <= idx && idx < 131) {
-			return ((idx < 0 || idx >= errors$1.length) ? $throwRuntimeError("index out of range") : errors$1[idx]);
-		}
-		flags = 12800;
-		b = $makeSlice(sliceType$2, 300);
-		_tuple = FormatMessage(flags, 0, (e >>> 0), langid(9, 1), b, ptrType$15.nil); n = _tuple[0]; err = _tuple[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			_tuple$1 = FormatMessage(flags, 0, (e >>> 0), 0, b, ptrType$15.nil); n = _tuple$1[0]; err = _tuple$1[1];
-			if (!($interfaceIsEqual(err, $ifaceNil))) {
-				return "winapi error #" + itoa((e >> 0));
+		if (0 <= (e >> 0) && (e >> 0) < 133) {
+			s = ((e < 0 || e >= errors.length) ? $throwRuntimeError("index out of range") : errors[e]);
+			if (!(s === "")) {
+				return s;
 			}
 		}
-		while (true) {
-			if (!(n > 0 && (((x = n - 1 >>> 0, ((x < 0 || x >= b.$length) ? $throwRuntimeError("index out of range") : b.$array[b.$offset + x])) === 10) || ((x$1 = n - 1 >>> 0, ((x$1 < 0 || x$1 >= b.$length) ? $throwRuntimeError("index out of range") : b.$array[b.$offset + x$1])) === 13)))) { break; }
-			n = n - (1) >>> 0;
-		}
-		return $runesToString(utf16.Decode($subslice(b, 0, n)));
+		return "errno " + itoa((e >> 0));
 	};
 	$ptrType(Errno).prototype.Error = function() { return new Errno(this.$get()).Error(); };
 	Errno.prototype.Temporary = function() {
 		var $ptr, e;
 		e = this.$val;
-		return (e === 536870950) || (e === 536870971) || new Errno(e).Timeout();
+		return (e === 4) || (e === 24) || (e === 104) || (e === 103) || new Errno(e).Timeout();
 	};
 	$ptrType(Errno).prototype.Temporary = function() { return new Errno(this.$get()).Temporary(); };
 	Errno.prototype.Timeout = function() {
 		var $ptr, e;
 		e = this.$val;
-		return (e === 536870918) || (e === 536871039) || (e === 536871033);
+		return (e === 11) || (e === 11) || (e === 110);
 	};
 	$ptrType(Errno).prototype.Timeout = function() { return new Errno(this.$get()).Timeout(); };
 	Read = function(fd, p) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, done, done_ptr, e, err, fd, n, p;
+		var $ptr, _tuple, err, fd, n, p;
 		n = 0;
 		err = $ifaceNil;
-		done = 0;
-		e = ReadFile(fd, p, (done_ptr || (done_ptr = new ptrType$11(function() { return done; }, function($v) { done = $v; }))), ptrType$18.nil);
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			if ($interfaceIsEqual(e, new Errno(109))) {
-				_tmp = 0; _tmp$1 = $ifaceNil; n = _tmp; err = _tmp$1;
-				return [n, err];
-			}
-			_tmp$2 = 0; _tmp$3 = e; n = _tmp$2; err = _tmp$3;
-			return [n, err];
-		}
-		_tmp$4 = (done >> 0); _tmp$5 = $ifaceNil; n = _tmp$4; err = _tmp$5;
+		_tuple = read(fd, p); n = _tuple[0]; err = _tuple[1];
 		return [n, err];
 	};
 	$pkg.Read = Read;
 	Write = function(fd, p) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, done, done_ptr, e, err, fd, n, p;
+		var $ptr, _tuple, err, fd, n, p;
 		n = 0;
 		err = $ifaceNil;
-		done = 0;
-		e = WriteFile(fd, p, (done_ptr || (done_ptr = new ptrType$11(function() { return done; }, function($v) { done = $v; }))), ptrType$18.nil);
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp = 0; _tmp$1 = e; n = _tmp; err = _tmp$1;
-			return [n, err];
-		}
-		_tmp$2 = (done >> 0); _tmp$3 = $ifaceNil; n = _tmp$2; err = _tmp$3;
+		_tuple = write(fd, p); n = _tuple[0]; err = _tuple[1];
 		return [n, err];
 	};
 	$pkg.Write = Write;
-	Seek = function(fd, offset, whence) {
-		var $ptr, _ref, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, _tuple$1, e, err, fd, ft, hi, hi_ptr, lo, newoffset, offset, rlo, w, whence, x, x$1, x$2;
-		newoffset = new $Int64(0, 0);
+	Close = function(fd) {
+		var $ptr, _tuple, e1, err, fd;
 		err = $ifaceNil;
-		w = 0;
-		_ref = whence;
-		if (_ref === 0) {
-			w = 0;
-		} else if (_ref === 1) {
-			w = 1;
-		} else if (_ref === 2) {
-			w = 2;
-		}
-		hi = ((x = $shiftRightInt64(offset, 32), x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
-		lo = ((offset.$low + ((offset.$high >> 31) * 4294967296)) >> 0);
-		_tuple = GetFileType(fd); ft = _tuple[0];
-		if (ft === 3) {
-			_tmp = new $Int64(0, 0); _tmp$1 = new Errno(536871015); newoffset = _tmp; err = _tmp$1;
-			return [newoffset, err];
-		}
-		_tuple$1 = SetFilePointer(fd, lo, (hi_ptr || (hi_ptr = new ptrType$19(function() { return hi; }, function($v) { hi = $v; }))), w); rlo = _tuple$1[0]; e = _tuple$1[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp$2 = new $Int64(0, 0); _tmp$3 = e; newoffset = _tmp$2; err = _tmp$3;
-			return [newoffset, err];
-		}
-		_tmp$4 = (x$1 = $shiftLeft64(new $Int64(0, hi), 32), x$2 = new $Int64(0, rlo), new $Int64(x$1.$high + x$2.$high, x$1.$low + x$2.$low)); _tmp$5 = $ifaceNil; newoffset = _tmp$4; err = _tmp$5;
-		return [newoffset, err];
-	};
-	$pkg.Seek = Seek;
-	Ftruncate = function(fd, length) {
-		var $ptr, _tuple, _tuple$1, curoffset, e, err, fd, length, $deferred;
-		/* */ var $err = null; try { $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		err = $ifaceNil;
-		_tuple = Seek(fd, new $Int64(0, 0), 1); curoffset = _tuple[0]; e = _tuple[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			err = e;
-			return err;
-		}
-		$deferred.push([Seek, [fd, curoffset, 0]]);
-		_tuple$1 = Seek(fd, length, 0); e = _tuple$1[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			err = e;
-			return err;
-		}
-		e = SetEndOfFile(fd);
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			err = e;
-			return err;
-		}
-		err = $ifaceNil;
-		return err;
-		/* */ } catch(err) { $err = err; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  err; } }
-	};
-	$pkg.Ftruncate = Ftruncate;
-	Fsync = function(fd) {
-		var $ptr, err, fd;
-		err = $ifaceNil;
-		err = FlushFileBuffers(fd);
-		return err;
-	};
-	$pkg.Fsync = Fsync;
-	FindNextFile = function(handle, data) {
-		var $ptr, data, data1, err, handle;
-		err = $ifaceNil;
-		data1 = $clone(new win32finddata1.ptr(), win32finddata1);
-		err = findNextFile1(handle, data1);
-		if ($interfaceIsEqual(err, $ifaceNil)) {
-			copyFindData(data, data1);
+		_tuple = Syscall(3, (fd >>> 0), 0, 0); e1 = _tuple[2];
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
 		}
 		return err;
 	};
-	$pkg.FindNextFile = FindNextFile;
+	$pkg.Close = Close;
 	Fchdir = function(fd) {
-		var $ptr, err, fd;
+		var $ptr, _tuple, e1, err, fd;
 		err = $ifaceNil;
-		err = new Errno(536871042);
+		_tuple = Syscall(81, (fd >>> 0), 0, 0); e1 = _tuple[2];
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
 		return err;
 	};
 	$pkg.Fchdir = Fchdir;
 	Fchmod = function(fd, mode) {
-		var $ptr, err, fd, mode;
+		var $ptr, _tuple, e1, err, fd, mode;
 		err = $ifaceNil;
-		err = new Errno(536871042);
+		_tuple = Syscall(91, (fd >>> 0), (mode >>> 0), 0); e1 = _tuple[2];
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
 		return err;
 	};
 	$pkg.Fchmod = Fchmod;
-	Fchown = function(fd, uid, gid) {
-		var $ptr, err, fd, gid, uid;
+	Fsync = function(fd) {
+		var $ptr, _tuple, e1, err, fd;
 		err = $ifaceNil;
-		err = new Errno(536871042);
+		_tuple = Syscall(74, (fd >>> 0), 0, 0); e1 = _tuple[2];
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
+		return err;
+	};
+	$pkg.Fsync = Fsync;
+	Getdents = function(fd, buf) {
+		var $ptr, _p0, _tuple, buf, e1, err, fd, n, r0;
+		n = 0;
+		err = $ifaceNil;
+		_p0 = 0;
+		if (buf.$length > 0) {
+			_p0 = $sliceToArray(buf);
+		} else {
+			_p0 = new Uint8Array(0);
+		}
+		_tuple = Syscall(217, (fd >>> 0), _p0, (buf.$length >>> 0)); r0 = _tuple[0]; e1 = _tuple[2];
+		n = (r0 >> 0);
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
+		return [n, err];
+	};
+	$pkg.Getdents = Getdents;
+	read = function(fd, p) {
+		var $ptr, _p0, _tuple, e1, err, fd, n, p, r0;
+		n = 0;
+		err = $ifaceNil;
+		_p0 = 0;
+		if (p.$length > 0) {
+			_p0 = $sliceToArray(p);
+		} else {
+			_p0 = new Uint8Array(0);
+		}
+		_tuple = Syscall(0, (fd >>> 0), _p0, (p.$length >>> 0)); r0 = _tuple[0]; e1 = _tuple[2];
+		n = (r0 >> 0);
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
+		return [n, err];
+	};
+	write = function(fd, p) {
+		var $ptr, _p0, _tuple, e1, err, fd, n, p, r0;
+		n = 0;
+		err = $ifaceNil;
+		_p0 = 0;
+		if (p.$length > 0) {
+			_p0 = $sliceToArray(p);
+		} else {
+			_p0 = new Uint8Array(0);
+		}
+		_tuple = Syscall(1, (fd >>> 0), _p0, (p.$length >>> 0)); r0 = _tuple[0]; e1 = _tuple[2];
+		n = (r0 >> 0);
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
+		return [n, err];
+	};
+	munmap = function(addr, length) {
+		var $ptr, _tuple, addr, e1, err, length;
+		err = $ifaceNil;
+		_tuple = Syscall(11, addr, length, 0); e1 = _tuple[2];
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
+		return err;
+	};
+	Fchown = function(fd, uid, gid) {
+		var $ptr, _tuple, e1, err, fd, gid, uid;
+		err = $ifaceNil;
+		_tuple = Syscall(93, (fd >>> 0), (uid >>> 0), (gid >>> 0)); e1 = _tuple[2];
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
 		return err;
 	};
 	$pkg.Fchown = Fchown;
-	Readlink = function(path, buf) {
-		var $ptr, _array, _q, _struct, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tuple, _view, buf, bytesReturned, bytesReturned_ptr, err, fd, n, path, rdb, rdbbuf, s, $deferred;
-		/* */ var $err = null; try { $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		n = 0;
+	Fstat = function(fd, stat) {
+		var $ptr, _array, _struct, _tuple, _view, e1, err, fd, stat;
 		err = $ifaceNil;
-		_tuple = CreateFile(StringToUTF16Ptr(path), 2147483648, 0, ptrType$10.nil, 3, 35651584, 0); fd = _tuple[0]; err = _tuple[1];
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			_tmp = -1; _tmp$1 = err; n = _tmp; err = _tmp$1;
-			return [n, err];
-		}
-		$deferred.push([CloseHandle, [fd]]);
-		rdbbuf = $makeSlice(sliceType, 16384);
-		bytesReturned = 0;
-		err = DeviceIoControl(fd, 589992, ptrType$15.nil, 0, $indexPtr(rdbbuf.$array, rdbbuf.$offset + 0, ptrType$15), (rdbbuf.$length >>> 0), (bytesReturned_ptr || (bytesReturned_ptr = new ptrType$11(function() { return bytesReturned; }, function($v) { bytesReturned = $v; }))), ptrType$18.nil);
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			_tmp$2 = -1; _tmp$3 = err; n = _tmp$2; err = _tmp$3;
-			return [n, err];
-		}
-		rdb = (_array = $sliceToArray(rdbbuf), _struct = new reparseDataBuffer.ptr(), _view = new DataView(_array.buffer, _array.byteOffset), _struct.ReparseTag = _view.getUint32(0, true), _struct.ReparseDataLength = _view.getUint16(4, true), _struct.Reserved = _view.getUint16(6, true), _struct.SubstituteNameOffset = _view.getUint16(8, true), _struct.SubstituteNameLength = _view.getUint16(10, true), _struct.PrintNameOffset = _view.getUint16(12, true), _struct.PrintNameLength = _view.getUint16(14, true), _struct.Flags = _view.getUint32(16, true), _struct.PathBuffer = new ($nativeArray($kindUint16))(_array.buffer, $min(_array.byteOffset + 20, _array.buffer.byteLength)), _struct);
-		if ((bytesReturned >>> 0) < 22 || !((rdb.ReparseTag === 2684354572))) {
-			_tmp$4 = -1; _tmp$5 = new Errno(2); n = _tmp$4; err = _tmp$5;
-			return [n, err];
-		}
-		s = UTF16ToString($subslice(new sliceType$2($sliceToArray(new sliceType(rdb.PathBuffer))), 0, (_q = rdb.PrintNameLength / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >>> 0 : $throwRuntimeError("integer divide by zero"))));
-		n = $copySlice(buf, new sliceType($stringToBytes(s)));
-		_tmp$6 = n; _tmp$7 = $ifaceNil; n = _tmp$6; err = _tmp$7;
-		return [n, err];
-		/* */ } catch(err) { $err = err; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [n, err]; } }
-	};
-	$pkg.Readlink = Readlink;
-	FreeLibrary = function(handle) {
-		var $ptr, _tuple, e1, err, handle, r1;
-		err = $ifaceNil;
-		_tuple = Syscall(procFreeLibrary.Addr(), 1, (handle >>> 0), 0, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
+		_array = new Uint8Array(144);
+		_tuple = Syscall(5, (fd >>> 0), _array, 0); e1 = _tuple[2];
+		_struct = stat, _view = new DataView(_array.buffer, _array.byteOffset), _struct.Dev = new $Uint64(_view.getUint32(4, true), _view.getUint32(0, true)), _struct.Ino = new $Uint64(_view.getUint32(12, true), _view.getUint32(8, true)), _struct.Nlink = new $Uint64(_view.getUint32(20, true), _view.getUint32(16, true)), _struct.Mode = _view.getUint32(24, true), _struct.Uid = _view.getUint32(28, true), _struct.Gid = _view.getUint32(32, true), _struct.X__pad0 = _view.getInt32(36, true), _struct.Rdev = new $Uint64(_view.getUint32(44, true), _view.getUint32(40, true)), _struct.Size = new $Int64(_view.getUint32(52, true), _view.getUint32(48, true)), _struct.Blksize = new $Int64(_view.getUint32(60, true), _view.getUint32(56, true)), _struct.Blocks = new $Int64(_view.getUint32(68, true), _view.getUint32(64, true)), _struct.Atim.Sec = new $Int64(_view.getUint32(76, true), _view.getUint32(72, true)), _struct.Atim.Nsec = new $Int64(_view.getUint32(84, true), _view.getUint32(80, true)), _struct.Mtim.Sec = new $Int64(_view.getUint32(92, true), _view.getUint32(88, true)), _struct.Mtim.Nsec = new $Int64(_view.getUint32(100, true), _view.getUint32(96, true)), _struct.Ctim.Sec = new $Int64(_view.getUint32(108, true), _view.getUint32(104, true)), _struct.Ctim.Nsec = new $Int64(_view.getUint32(116, true), _view.getUint32(112, true)), _struct.X__unused = new ($nativeArray($kindInt64))(_array.buffer, $min(_array.byteOffset + 120, _array.buffer.byteLength));
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
 		}
 		return err;
 	};
-	$pkg.FreeLibrary = FreeLibrary;
-	FormatMessage = function(flags, msgsrc, msgid, langid$1, buf, args) {
-		var $ptr, _p0, _tuple, args, buf, e1, err, flags, langid$1, msgid, msgsrc, n, r0;
-		n = 0;
+	$pkg.Fstat = Fstat;
+	Ftruncate = function(fd, length) {
+		var $ptr, _tuple, e1, err, fd, length;
+		err = $ifaceNil;
+		_tuple = Syscall(77, (fd >>> 0), (length.$low >>> 0), 0); e1 = _tuple[2];
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
+		}
+		return err;
+	};
+	$pkg.Ftruncate = Ftruncate;
+	Lstat = function(path, stat) {
+		var $ptr, _array, _p0, _struct, _tuple, _tuple$1, _view, e1, err, path, stat;
 		err = $ifaceNil;
 		_p0 = ptrType.nil;
-		if (buf.$length > 0) {
-			_p0 = $indexPtr(buf.$array, buf.$offset + 0, ptrType);
+		_tuple = BytePtrFromString(path); _p0 = _tuple[0]; err = _tuple[1];
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return err;
 		}
-		_tuple = Syscall9(procFormatMessageW.Addr(), 7, (flags >>> 0), (msgsrc >>> 0), (msgid >>> 0), (langid$1 >>> 0), _p0, (buf.$length >>> 0), args, 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
-		n = (r0 >>> 0);
-		if (n === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return [n, err];
-	};
-	$pkg.FormatMessage = FormatMessage;
-	CreateFile = function(name, access, mode, sa, createmode, attrs, templatefile) {
-		var $ptr, _array, _struct, _tuple, _view, access, attrs, createmode, e1, err, handle, mode, name, r0, sa, templatefile;
-		handle = 0;
-		err = $ifaceNil;
-		_array = new Uint8Array(12);
-		_tuple = Syscall9(procCreateFileW.Addr(), 7, name, (access >>> 0), (mode >>> 0), _array, (createmode >>> 0), (attrs >>> 0), (templatefile >>> 0), 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
-		_struct = sa, _view = new DataView(_array.buffer, _array.byteOffset), _struct.Length = _view.getUint32(0, true), _struct.SecurityDescriptor = _view.getUintptr(4, true), _struct.InheritHandle = _view.getUint32(8, true);
-		handle = (r0 >>> 0);
-		if (handle === 4294967295) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return [handle, err];
-	};
-	$pkg.CreateFile = CreateFile;
-	ReadFile = function(handle, buf, done, overlapped) {
-		var $ptr, _array, _p0, _struct, _tuple, _view, buf, done, e1, err, handle, overlapped, r1;
-		err = $ifaceNil;
-		_p0 = ptrType$15.nil;
-		if (buf.$length > 0) {
-			_p0 = $indexPtr(buf.$array, buf.$offset + 0, ptrType$15);
-		}
-		_array = new Uint8Array(20);
-		_tuple = Syscall6(procReadFile.Addr(), 5, (handle >>> 0), _p0, (buf.$length >>> 0), done, _array, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		_struct = overlapped, _view = new DataView(_array.buffer, _array.byteOffset), _struct.Internal = _view.getUintptr(0, true), _struct.InternalHigh = _view.getUintptr(4, true), _struct.Offset = _view.getUint32(8, true), _struct.OffsetHigh = _view.getUint32(12, true), _struct.HEvent = _view.getUintptr(16, true);
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
+		_array = new Uint8Array(144);
+		_tuple$1 = Syscall(6, _p0, _array, 0); e1 = _tuple$1[2];
+		_struct = stat, _view = new DataView(_array.buffer, _array.byteOffset), _struct.Dev = new $Uint64(_view.getUint32(4, true), _view.getUint32(0, true)), _struct.Ino = new $Uint64(_view.getUint32(12, true), _view.getUint32(8, true)), _struct.Nlink = new $Uint64(_view.getUint32(20, true), _view.getUint32(16, true)), _struct.Mode = _view.getUint32(24, true), _struct.Uid = _view.getUint32(28, true), _struct.Gid = _view.getUint32(32, true), _struct.X__pad0 = _view.getInt32(36, true), _struct.Rdev = new $Uint64(_view.getUint32(44, true), _view.getUint32(40, true)), _struct.Size = new $Int64(_view.getUint32(52, true), _view.getUint32(48, true)), _struct.Blksize = new $Int64(_view.getUint32(60, true), _view.getUint32(56, true)), _struct.Blocks = new $Int64(_view.getUint32(68, true), _view.getUint32(64, true)), _struct.Atim.Sec = new $Int64(_view.getUint32(76, true), _view.getUint32(72, true)), _struct.Atim.Nsec = new $Int64(_view.getUint32(84, true), _view.getUint32(80, true)), _struct.Mtim.Sec = new $Int64(_view.getUint32(92, true), _view.getUint32(88, true)), _struct.Mtim.Nsec = new $Int64(_view.getUint32(100, true), _view.getUint32(96, true)), _struct.Ctim.Sec = new $Int64(_view.getUint32(108, true), _view.getUint32(104, true)), _struct.Ctim.Nsec = new $Int64(_view.getUint32(116, true), _view.getUint32(112, true)), _struct.X__unused = new ($nativeArray($kindInt64))(_array.buffer, $min(_array.byteOffset + 120, _array.buffer.byteLength));
+		use(_p0);
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
 		}
 		return err;
 	};
-	$pkg.ReadFile = ReadFile;
-	SetFilePointer = function(handle, lowoffset, highoffsetptr, whence) {
-		var $ptr, _tuple, e1, err, handle, highoffsetptr, lowoffset, newlowoffset, r0, whence;
-		newlowoffset = 0;
-		err = $ifaceNil;
-		_tuple = Syscall6(procSetFilePointer.Addr(), 4, (handle >>> 0), (lowoffset >>> 0), highoffsetptr, (whence >>> 0), 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
-		newlowoffset = (r0 >>> 0);
-		if (newlowoffset === 4294967295) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return [newlowoffset, err];
-	};
-	$pkg.SetFilePointer = SetFilePointer;
-	CloseHandle = function(handle) {
-		var $ptr, _tuple, e1, err, handle, r1;
-		err = $ifaceNil;
-		_tuple = Syscall(procCloseHandle.Addr(), 1, (handle >>> 0), 0, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	$pkg.CloseHandle = CloseHandle;
-	findNextFile1 = function(handle, data) {
-		var $ptr, _array, _struct, _tuple, _view, data, e1, err, handle, r1;
-		err = $ifaceNil;
-		_array = new Uint8Array(592);
-		_tuple = Syscall(procFindNextFileW.Addr(), 2, (handle >>> 0), _array, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		_struct = data, _view = new DataView(_array.buffer, _array.byteOffset), _struct.FileAttributes = _view.getUint32(0, true), _struct.CreationTime.LowDateTime = _view.getUint32(4, true), _struct.CreationTime.HighDateTime = _view.getUint32(8, true), _struct.LastAccessTime.LowDateTime = _view.getUint32(12, true), _struct.LastAccessTime.HighDateTime = _view.getUint32(16, true), _struct.LastWriteTime.LowDateTime = _view.getUint32(20, true), _struct.LastWriteTime.HighDateTime = _view.getUint32(24, true), _struct.FileSizeHigh = _view.getUint32(28, true), _struct.FileSizeLow = _view.getUint32(32, true), _struct.Reserved0 = _view.getUint32(36, true), _struct.Reserved1 = _view.getUint32(40, true), _struct.FileName = new ($nativeArray($kindUint16))(_array.buffer, $min(_array.byteOffset + 44, _array.buffer.byteLength)), _struct.AlternateFileName = new ($nativeArray($kindUint16))(_array.buffer, $min(_array.byteOffset + 564, _array.buffer.byteLength));
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	FindClose = function(handle) {
-		var $ptr, _tuple, e1, err, handle, r1;
-		err = $ifaceNil;
-		_tuple = Syscall(procFindClose.Addr(), 1, (handle >>> 0), 0, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	$pkg.FindClose = FindClose;
-	GetFileInformationByHandle = function(handle, data) {
-		var $ptr, _array, _struct, _tuple, _view, data, e1, err, handle, r1;
-		err = $ifaceNil;
-		_array = new Uint8Array(52);
-		_tuple = Syscall(procGetFileInformationByHandle.Addr(), 2, (handle >>> 0), _array, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		_struct = data, _view = new DataView(_array.buffer, _array.byteOffset), _struct.FileAttributes = _view.getUint32(0, true), _struct.CreationTime.LowDateTime = _view.getUint32(4, true), _struct.CreationTime.HighDateTime = _view.getUint32(8, true), _struct.LastAccessTime.LowDateTime = _view.getUint32(12, true), _struct.LastAccessTime.HighDateTime = _view.getUint32(16, true), _struct.LastWriteTime.LowDateTime = _view.getUint32(20, true), _struct.LastWriteTime.HighDateTime = _view.getUint32(24, true), _struct.VolumeSerialNumber = _view.getUint32(28, true), _struct.FileSizeHigh = _view.getUint32(32, true), _struct.FileSizeLow = _view.getUint32(36, true), _struct.NumberOfLinks = _view.getUint32(40, true), _struct.FileIndexHigh = _view.getUint32(44, true), _struct.FileIndexLow = _view.getUint32(48, true);
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	$pkg.GetFileInformationByHandle = GetFileInformationByHandle;
-	SetEndOfFile = function(handle) {
-		var $ptr, _tuple, e1, err, handle, r1;
-		err = $ifaceNil;
-		_tuple = Syscall(procSetEndOfFile.Addr(), 1, (handle >>> 0), 0, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	$pkg.SetEndOfFile = SetEndOfFile;
-	GetFileType = function(filehandle) {
-		var $ptr, _tuple, e1, err, filehandle, n, r0;
+	$pkg.Lstat = Lstat;
+	Pread = function(fd, p, offset) {
+		var $ptr, _p0, _tuple, e1, err, fd, n, offset, p, r0;
 		n = 0;
 		err = $ifaceNil;
-		_tuple = Syscall(procGetFileType.Addr(), 1, (filehandle >>> 0), 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
-		n = (r0 >>> 0);
-		if (n === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
+		_p0 = 0;
+		if (p.$length > 0) {
+			_p0 = $sliceToArray(p);
+		} else {
+			_p0 = new Uint8Array(0);
+		}
+		_tuple = Syscall6(17, (fd >>> 0), _p0, (p.$length >>> 0), (offset.$low >>> 0), 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
+		n = (r0 >> 0);
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
 		}
 		return [n, err];
 	};
-	$pkg.GetFileType = GetFileType;
-	GetFileAttributesEx = function(name, level, info) {
-		var $ptr, _tuple, e1, err, info, level, name, r1;
-		err = $ifaceNil;
-		_tuple = Syscall(procGetFileAttributesExW.Addr(), 3, name, (level >>> 0), info); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	$pkg.GetFileAttributesEx = GetFileAttributesEx;
-	LocalFree = function(hmem) {
-		var $ptr, _tuple, e1, err, handle, hmem, r0;
-		handle = 0;
-		err = $ifaceNil;
-		_tuple = Syscall(procLocalFree.Addr(), 1, (hmem >>> 0), 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
-		handle = (r0 >>> 0);
-		if (!((handle === 0))) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return [handle, err];
-	};
-	$pkg.LocalFree = LocalFree;
-	FlushFileBuffers = function(handle) {
-		var $ptr, _tuple, e1, err, handle, r1;
-		err = $ifaceNil;
-		_tuple = Syscall(procFlushFileBuffers.Addr(), 1, (handle >>> 0), 0, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	$pkg.FlushFileBuffers = FlushFileBuffers;
-	GetFullPathName = function(path, buflen, buf, fname) {
-		var $ptr, _tuple, buf, buflen, e1, err, fname, n, path, r0;
+	$pkg.Pread = Pread;
+	Pwrite = function(fd, p, offset) {
+		var $ptr, _p0, _tuple, e1, err, fd, n, offset, p, r0;
 		n = 0;
 		err = $ifaceNil;
-		_tuple = Syscall6(procGetFullPathNameW.Addr(), 4, path, (buflen >>> 0), buf, fname, 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
-		n = (r0 >>> 0);
-		if (n === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
+		_p0 = 0;
+		if (p.$length > 0) {
+			_p0 = $sliceToArray(p);
+		} else {
+			_p0 = new Uint8Array(0);
+		}
+		_tuple = Syscall6(18, (fd >>> 0), _p0, (p.$length >>> 0), (offset.$low >>> 0), 0, 0); r0 = _tuple[0]; e1 = _tuple[2];
+		n = (r0 >> 0);
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
 		}
 		return [n, err];
 	};
-	$pkg.GetFullPathName = GetFullPathName;
-	WriteConsole = function(console, buf, towrite, written, reserved) {
-		var $ptr, _tuple, buf, console, e1, err, r1, reserved, towrite, written;
+	$pkg.Pwrite = Pwrite;
+	Seek = function(fd, offset, whence) {
+		var $ptr, _tuple, e1, err, fd, off, offset, r0, whence;
+		off = new $Int64(0, 0);
 		err = $ifaceNil;
-		_tuple = Syscall6(procWriteConsoleW.Addr(), 5, (console >>> 0), buf, (towrite >>> 0), written, reserved, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
+		_tuple = Syscall(8, (fd >>> 0), (offset.$low >>> 0), (whence >>> 0)); r0 = _tuple[0]; e1 = _tuple[2];
+		off = new $Int64(0, r0.constructor === Number ? r0 : 1);
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
 		}
-		return err;
+		return [off, err];
 	};
-	$pkg.WriteConsole = WriteConsole;
-	ReadConsole = function(console, buf, toread, read, inputControl) {
-		var $ptr, _tuple, buf, console, e1, err, inputControl, r1, read, toread;
+	$pkg.Seek = Seek;
+	mmap = function(addr, length, prot, flags, fd, offset) {
+		var $ptr, _tuple, addr, e1, err, fd, flags, length, offset, prot, r0, xaddr;
+		xaddr = 0;
 		err = $ifaceNil;
-		_tuple = Syscall6(procReadConsoleW.Addr(), 5, (console >>> 0), buf, (toread >>> 0), read, inputControl, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
+		_tuple = Syscall6(9, addr, length, (prot >>> 0), (flags >>> 0), (fd >>> 0), (offset.$low >>> 0)); r0 = _tuple[0]; e1 = _tuple[2];
+		xaddr = r0;
+		if (!((e1 === 0))) {
+			err = new Errno(e1);
 		}
-		return err;
+		return [xaddr, err];
 	};
-	$pkg.ReadConsole = ReadConsole;
-	DeviceIoControl = function(handle, ioControlCode, inBuffer, inBufferSize, outBuffer, outBufferSize, bytesReturned, overlapped) {
-		var $ptr, _array, _struct, _tuple, _view, bytesReturned, e1, err, handle, inBuffer, inBufferSize, ioControlCode, outBuffer, outBufferSize, overlapped, r1;
-		err = $ifaceNil;
-		_array = new Uint8Array(20);
-		_tuple = Syscall9(procDeviceIoControl.Addr(), 8, (handle >>> 0), (ioControlCode >>> 0), inBuffer, (inBufferSize >>> 0), outBuffer, (outBufferSize >>> 0), bytesReturned, _array, 0); r1 = _tuple[0]; e1 = _tuple[2];
-		_struct = overlapped, _view = new DataView(_array.buffer, _array.byteOffset), _struct.Internal = _view.getUintptr(0, true), _struct.InternalHigh = _view.getUintptr(4, true), _struct.Offset = _view.getUint32(8, true), _struct.OffsetHigh = _view.getUint32(12, true), _struct.HEvent = _view.getUintptr(16, true);
-		if (r1 === 0) {
-			if (!((e1 === 0))) {
-				err = new Errno(e1);
-			} else {
-				err = new Errno(536870951);
-			}
-		}
-		return err;
-	};
-	$pkg.DeviceIoControl = DeviceIoControl;
-	Filetime.ptr.prototype.Nanoseconds = function() {
-		var $ptr, ft, nsec, x, x$1, x$2;
-		ft = this;
-		nsec = (x = $shiftLeft64(new $Int64(0, ft.HighDateTime), 32), x$1 = new $Int64(0, ft.LowDateTime), new $Int64(x.$high + x$1.$high, x.$low + x$1.$low));
-		nsec = (x$2 = new $Int64(27111902, 3577643008), new $Int64(nsec.$high - x$2.$high, nsec.$low - x$2.$low));
-		nsec = $mul64(nsec, (new $Int64(0, 100)));
-		return nsec;
-	};
-	Filetime.prototype.Nanoseconds = function() { return this.$val.Nanoseconds(); };
-	copyFindData = function(dst, src) {
-		var $ptr, dst, src;
-		dst.FileAttributes = src.FileAttributes;
-		$copy(dst.CreationTime, src.CreationTime, Filetime);
-		$copy(dst.LastAccessTime, src.LastAccessTime, Filetime);
-		$copy(dst.LastWriteTime, src.LastWriteTime, Filetime);
-		dst.FileSizeHigh = src.FileSizeHigh;
-		dst.FileSizeLow = src.FileSizeLow;
-		dst.Reserved0 = src.Reserved0;
-		dst.Reserved1 = src.Reserved1;
-		$copySlice(new sliceType$2(dst.FileName), new sliceType$2(src.FileName));
-		$copySlice(new sliceType$2(dst.AlternateFileName), new sliceType$2(src.AlternateFileName));
-	};
-	DummyError.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
-	ptrType$27.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
-	ptrType$3.methods = [{prop: "FindProc", name: "FindProc", pkg: "", typ: $funcType([$String], [ptrType$4, $error], false)}, {prop: "MustFindProc", name: "MustFindProc", pkg: "", typ: $funcType([$String], [ptrType$4], false)}, {prop: "Release", name: "Release", pkg: "", typ: $funcType([], [$error], false)}];
-	ptrType$4.methods = [{prop: "Addr", name: "Addr", pkg: "", typ: $funcType([], [$Uintptr], false)}, {prop: "Call", name: "Call", pkg: "", typ: $funcType([sliceType$6], [$Uintptr, $Uintptr, $error], true)}];
-	ptrType$5.methods = [{prop: "Load", name: "Load", pkg: "", typ: $funcType([], [$error], false)}, {prop: "mustLoad", name: "mustLoad", pkg: "syscall", typ: $funcType([], [], false)}, {prop: "Handle", name: "Handle", pkg: "", typ: $funcType([], [$Uintptr], false)}, {prop: "NewProc", name: "NewProc", pkg: "", typ: $funcType([$String], [ptrType$28], false)}];
-	ptrType$28.methods = [{prop: "Find", name: "Find", pkg: "", typ: $funcType([], [$error], false)}, {prop: "mustFind", name: "mustFind", pkg: "syscall", typ: $funcType([], [], false)}, {prop: "Addr", name: "Addr", pkg: "", typ: $funcType([], [$Uintptr], false)}, {prop: "Call", name: "Call", pkg: "", typ: $funcType([sliceType$6], [$Uintptr, $Uintptr, $error], true)}];
+	ptrType$22.methods = [{prop: "Mmap", name: "Mmap", pkg: "", typ: $funcType([$Int, $Int64, $Int, $Int, $Int], [sliceType, $error], false)}, {prop: "Munmap", name: "Munmap", pkg: "", typ: $funcType([sliceType], [$error], false)}];
 	Errno.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Temporary", name: "Temporary", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Timeout", name: "Timeout", pkg: "", typ: $funcType([], [$Bool], false)}];
-	ptrType$20.methods = [{prop: "Nanoseconds", name: "Nanoseconds", pkg: "", typ: $funcType([], [$Int64], false)}];
-	DummyError.init([]);
-	DLLError.init([{prop: "Err", name: "Err", pkg: "", typ: $error, tag: ""}, {prop: "ObjName", name: "ObjName", pkg: "", typ: $String, tag: ""}, {prop: "Msg", name: "Msg", pkg: "", typ: $String, tag: ""}]);
-	DLL.init([{prop: "Name", name: "Name", pkg: "", typ: $String, tag: ""}, {prop: "Handle", name: "Handle", pkg: "", typ: Handle, tag: ""}]);
-	Proc.init([{prop: "Dll", name: "Dll", pkg: "", typ: ptrType$3, tag: ""}, {prop: "Name", name: "Name", pkg: "", typ: $String, tag: ""}, {prop: "addr", name: "addr", pkg: "syscall", typ: $Uintptr, tag: ""}]);
-	LazyDLL.init([{prop: "mu", name: "mu", pkg: "syscall", typ: sync.Mutex, tag: ""}, {prop: "dll", name: "dll", pkg: "syscall", typ: ptrType$3, tag: ""}, {prop: "Name", name: "Name", pkg: "", typ: $String, tag: ""}]);
-	LazyProc.init([{prop: "mu", name: "mu", pkg: "syscall", typ: sync.Mutex, tag: ""}, {prop: "Name", name: "Name", pkg: "", typ: $String, tag: ""}, {prop: "l", name: "l", pkg: "syscall", typ: ptrType$5, tag: ""}, {prop: "proc", name: "proc", pkg: "syscall", typ: ptrType$4, tag: ""}]);
-	SecurityAttributes.init([{prop: "Length", name: "Length", pkg: "", typ: $Uint32, tag: ""}, {prop: "SecurityDescriptor", name: "SecurityDescriptor", pkg: "", typ: $Uintptr, tag: ""}, {prop: "InheritHandle", name: "InheritHandle", pkg: "", typ: $Uint32, tag: ""}]);
-	Overlapped.init([{prop: "Internal", name: "Internal", pkg: "", typ: $Uintptr, tag: ""}, {prop: "InternalHigh", name: "InternalHigh", pkg: "", typ: $Uintptr, tag: ""}, {prop: "Offset", name: "Offset", pkg: "", typ: $Uint32, tag: ""}, {prop: "OffsetHigh", name: "OffsetHigh", pkg: "", typ: $Uint32, tag: ""}, {prop: "HEvent", name: "HEvent", pkg: "", typ: Handle, tag: ""}]);
-	Filetime.init([{prop: "LowDateTime", name: "LowDateTime", pkg: "", typ: $Uint32, tag: ""}, {prop: "HighDateTime", name: "HighDateTime", pkg: "", typ: $Uint32, tag: ""}]);
-	Win32finddata.init([{prop: "FileAttributes", name: "FileAttributes", pkg: "", typ: $Uint32, tag: ""}, {prop: "CreationTime", name: "CreationTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastAccessTime", name: "LastAccessTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastWriteTime", name: "LastWriteTime", pkg: "", typ: Filetime, tag: ""}, {prop: "FileSizeHigh", name: "FileSizeHigh", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileSizeLow", name: "FileSizeLow", pkg: "", typ: $Uint32, tag: ""}, {prop: "Reserved0", name: "Reserved0", pkg: "", typ: $Uint32, tag: ""}, {prop: "Reserved1", name: "Reserved1", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileName", name: "FileName", pkg: "", typ: arrayType$8, tag: ""}, {prop: "AlternateFileName", name: "AlternateFileName", pkg: "", typ: arrayType$9, tag: ""}]);
-	win32finddata1.init([{prop: "FileAttributes", name: "FileAttributes", pkg: "", typ: $Uint32, tag: ""}, {prop: "CreationTime", name: "CreationTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastAccessTime", name: "LastAccessTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastWriteTime", name: "LastWriteTime", pkg: "", typ: Filetime, tag: ""}, {prop: "FileSizeHigh", name: "FileSizeHigh", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileSizeLow", name: "FileSizeLow", pkg: "", typ: $Uint32, tag: ""}, {prop: "Reserved0", name: "Reserved0", pkg: "", typ: $Uint32, tag: ""}, {prop: "Reserved1", name: "Reserved1", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileName", name: "FileName", pkg: "", typ: arrayType$10, tag: ""}, {prop: "AlternateFileName", name: "AlternateFileName", pkg: "", typ: arrayType$11, tag: ""}]);
-	ByHandleFileInformation.init([{prop: "FileAttributes", name: "FileAttributes", pkg: "", typ: $Uint32, tag: ""}, {prop: "CreationTime", name: "CreationTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastAccessTime", name: "LastAccessTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastWriteTime", name: "LastWriteTime", pkg: "", typ: Filetime, tag: ""}, {prop: "VolumeSerialNumber", name: "VolumeSerialNumber", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileSizeHigh", name: "FileSizeHigh", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileSizeLow", name: "FileSizeLow", pkg: "", typ: $Uint32, tag: ""}, {prop: "NumberOfLinks", name: "NumberOfLinks", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileIndexHigh", name: "FileIndexHigh", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileIndexLow", name: "FileIndexLow", pkg: "", typ: $Uint32, tag: ""}]);
-	Win32FileAttributeData.init([{prop: "FileAttributes", name: "FileAttributes", pkg: "", typ: $Uint32, tag: ""}, {prop: "CreationTime", name: "CreationTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastAccessTime", name: "LastAccessTime", pkg: "", typ: Filetime, tag: ""}, {prop: "LastWriteTime", name: "LastWriteTime", pkg: "", typ: Filetime, tag: ""}, {prop: "FileSizeHigh", name: "FileSizeHigh", pkg: "", typ: $Uint32, tag: ""}, {prop: "FileSizeLow", name: "FileSizeLow", pkg: "", typ: $Uint32, tag: ""}]);
-	reparseDataBuffer.init([{prop: "ReparseTag", name: "ReparseTag", pkg: "", typ: $Uint32, tag: ""}, {prop: "ReparseDataLength", name: "ReparseDataLength", pkg: "", typ: $Uint16, tag: ""}, {prop: "Reserved", name: "Reserved", pkg: "", typ: $Uint16, tag: ""}, {prop: "SubstituteNameOffset", name: "SubstituteNameOffset", pkg: "", typ: $Uint16, tag: ""}, {prop: "SubstituteNameLength", name: "SubstituteNameLength", pkg: "", typ: $Uint16, tag: ""}, {prop: "PrintNameOffset", name: "PrintNameOffset", pkg: "", typ: $Uint16, tag: ""}, {prop: "PrintNameLength", name: "PrintNameLength", pkg: "", typ: $Uint16, tag: ""}, {prop: "Flags", name: "Flags", pkg: "", typ: $Uint32, tag: ""}, {prop: "PathBuffer", name: "PathBuffer", pkg: "", typ: arrayType$20, tag: ""}]);
+	ptrType$26.methods = [{prop: "Unix", name: "Unix", pkg: "", typ: $funcType([], [$Int64, $Int64], false)}, {prop: "Nano", name: "Nano", pkg: "", typ: $funcType([], [$Int64], false)}];
+	mmapper.init([{prop: "Mutex", name: "", pkg: "", typ: sync.Mutex, tag: ""}, {prop: "active", name: "active", pkg: "syscall", typ: mapType, tag: ""}, {prop: "mmap", name: "mmap", pkg: "syscall", typ: funcType, tag: ""}, {prop: "munmap", name: "munmap", pkg: "syscall", typ: funcType$1, tag: ""}]);
+	Timespec.init([{prop: "Sec", name: "Sec", pkg: "", typ: $Int64, tag: ""}, {prop: "Nsec", name: "Nsec", pkg: "", typ: $Int64, tag: ""}]);
+	Stat_t.init([{prop: "Dev", name: "Dev", pkg: "", typ: $Uint64, tag: ""}, {prop: "Ino", name: "Ino", pkg: "", typ: $Uint64, tag: ""}, {prop: "Nlink", name: "Nlink", pkg: "", typ: $Uint64, tag: ""}, {prop: "Mode", name: "Mode", pkg: "", typ: $Uint32, tag: ""}, {prop: "Uid", name: "Uid", pkg: "", typ: $Uint32, tag: ""}, {prop: "Gid", name: "Gid", pkg: "", typ: $Uint32, tag: ""}, {prop: "X__pad0", name: "X__pad0", pkg: "", typ: $Int32, tag: ""}, {prop: "Rdev", name: "Rdev", pkg: "", typ: $Uint64, tag: ""}, {prop: "Size", name: "Size", pkg: "", typ: $Int64, tag: ""}, {prop: "Blksize", name: "Blksize", pkg: "", typ: $Int64, tag: ""}, {prop: "Blocks", name: "Blocks", pkg: "", typ: $Int64, tag: ""}, {prop: "Atim", name: "Atim", pkg: "", typ: Timespec, tag: ""}, {prop: "Mtim", name: "Mtim", pkg: "", typ: Timespec, tag: ""}, {prop: "Ctim", name: "Ctim", pkg: "", typ: Timespec, tag: ""}, {prop: "X__unused", name: "X__unused", pkg: "", typ: arrayType$10, tag: ""}]);
+	Dirent.init([{prop: "Ino", name: "Ino", pkg: "", typ: $Uint64, tag: ""}, {prop: "Off", name: "Off", pkg: "", typ: $Int64, tag: ""}, {prop: "Reclen", name: "Reclen", pkg: "", typ: $Uint16, tag: ""}, {prop: "Type", name: "Type", pkg: "", typ: $Uint8, tag: ""}, {prop: "Name", name: "Name", pkg: "", typ: arrayType$12, tag: ""}, {prop: "Pad_cgo_0", name: "Pad_cgo_0", pkg: "", typ: arrayType$13, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = bytes.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = errors.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = js.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = js.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = runtime.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = sync.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = atomic.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = utf16.$init(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		lineBuffer = sliceType.nil;
+		syscallModule = null;
+		envOnce = new sync.Once.ptr();
+		envLock = new sync.RWMutex.ptr();
+		env = false;
 		warningPrinted = false;
+		alreadyTriedToLoad = false;
 		minusOne = -1;
-		errors$1 = $toNativeArray($kindString, ["argument list too long", "permission denied", "address already in use", "cannot assign requested address", "advertise error", "address family not supported by protocol", "resource temporarily unavailable", "operation already in progress", "invalid exchange", "bad file descriptor", "file descriptor in bad state", "bad message", "invalid request descriptor", "invalid request code", "invalid slot", "bad font file format", "device or resource busy", "operation canceled", "no child processes", "channel number out of range", "communication error on send", "software caused connection abort", "connection refused", "connection reset by peer", "resource deadlock avoided", "resource deadlock avoided", "destination address required", "numerical argument out of domain", "RFS specific error", "disk quota exceeded", "file exists", "bad address", "file too large", "host is down", "no route to host", "identifier removed", "invalid or incomplete multibyte or wide character", "operation now in progress", "interrupted system call", "invalid argument", "input/output error", "transport endpoint is already connected", "is a directory", "is a named type file", "key has expired", "key was rejected by service", "key has been revoked", "level 2 halted", "level 2 not synchronized", "level 3 halted", "level 3 reset", "can not access a needed shared library", "accessing a corrupted shared library", "cannot exec a shared library directly", "attempting to link in too many shared libraries", ".lib section in a.out corrupted", "link number out of range", "too many levels of symbolic links", "wrong medium type", "too many open files", "too many links", "message too long", "multihop attempted", "file name too long", "no XENIX semaphores available", "network is down", "network dropped connection on reset", "network is unreachable", "too many open files in system", "no anode", "no buffer space available", "no CSI structure available", "no data available", "no such device", "exec format error", "required key not available", "no locks available", "link has been severed", "no medium found", "cannot allocate memory", "no message of desired type", "machine is not on the network", "package not installed", "protocol not available", "no space left on device", "out of streams resources", "device not a stream", "function not implemented", "block device required", "transport endpoint is not connected", "directory not empty", "not a XENIX named type file", "state not recoverable", "socket operation on non-socket", "operation not supported", "inappropriate ioctl for device", "name not unique on network", "no such device or address", "operation not supported", "value too large for defined data type", "owner died", "operation not permitted", "protocol family not supported", "broken pipe", "protocol error", "protocol not supported", "protocol wrong type for socket", "numerical result out of range", "remote address changed", "object is remote", "remote I/O error", "interrupted system call should be restarted", "read-only file system", "cannot send after transport endpoint shutdown", "socket type not supported", "illegal seek", "no such process", "srmount error", "stale NFS file handle", "streams pipe error", "timer expired", "connection timed out", "too many references: cannot splice", "text file busy", "structure needs cleaning", "protocol driver not attached", "too many users", "resource temporarily unavailable", "invalid cross-device link", "exchange full", "not supported by windows"]);
-		modkernel32 = NewLazyDLL("kernel32.dll");
-		modadvapi32 = NewLazyDLL("advapi32.dll");
-		modshell32 = NewLazyDLL("shell32.dll");
-		modmswsock = NewLazyDLL("mswsock.dll");
-		modcrypt32 = NewLazyDLL("crypt32.dll");
-		modws2_32 = NewLazyDLL("ws2_32.dll");
-		moddnsapi = NewLazyDLL("dnsapi.dll");
-		modiphlpapi = NewLazyDLL("iphlpapi.dll");
-		modsecur32 = NewLazyDLL("secur32.dll");
-		modnetapi32 = NewLazyDLL("netapi32.dll");
-		moduserenv = NewLazyDLL("userenv.dll");
-		procGetLastError = modkernel32.NewProc("GetLastError");
-		procLoadLibraryW = modkernel32.NewProc("LoadLibraryW");
-		procFreeLibrary = modkernel32.NewProc("FreeLibrary");
-		procGetProcAddress = modkernel32.NewProc("GetProcAddress");
-		procGetVersion = modkernel32.NewProc("GetVersion");
-		procFormatMessageW = modkernel32.NewProc("FormatMessageW");
-		procExitProcess = modkernel32.NewProc("ExitProcess");
-		procCreateFileW = modkernel32.NewProc("CreateFileW");
-		procReadFile = modkernel32.NewProc("ReadFile");
-		procWriteFile = modkernel32.NewProc("WriteFile");
-		procSetFilePointer = modkernel32.NewProc("SetFilePointer");
-		procCloseHandle = modkernel32.NewProc("CloseHandle");
-		procGetStdHandle = modkernel32.NewProc("GetStdHandle");
-		procFindFirstFileW = modkernel32.NewProc("FindFirstFileW");
-		procFindNextFileW = modkernel32.NewProc("FindNextFileW");
-		procFindClose = modkernel32.NewProc("FindClose");
-		procGetFileInformationByHandle = modkernel32.NewProc("GetFileInformationByHandle");
-		procGetCurrentDirectoryW = modkernel32.NewProc("GetCurrentDirectoryW");
-		procSetCurrentDirectoryW = modkernel32.NewProc("SetCurrentDirectoryW");
-		procCreateDirectoryW = modkernel32.NewProc("CreateDirectoryW");
-		procRemoveDirectoryW = modkernel32.NewProc("RemoveDirectoryW");
-		procDeleteFileW = modkernel32.NewProc("DeleteFileW");
-		procMoveFileW = modkernel32.NewProc("MoveFileW");
-		procGetComputerNameW = modkernel32.NewProc("GetComputerNameW");
-		procSetEndOfFile = modkernel32.NewProc("SetEndOfFile");
-		procGetSystemTimeAsFileTime = modkernel32.NewProc("GetSystemTimeAsFileTime");
-		procGetTimeZoneInformation = modkernel32.NewProc("GetTimeZoneInformation");
-		procCreateIoCompletionPort = modkernel32.NewProc("CreateIoCompletionPort");
-		procGetQueuedCompletionStatus = modkernel32.NewProc("GetQueuedCompletionStatus");
-		procPostQueuedCompletionStatus = modkernel32.NewProc("PostQueuedCompletionStatus");
-		procCancelIo = modkernel32.NewProc("CancelIo");
-		procCancelIoEx = modkernel32.NewProc("CancelIoEx");
-		procCreateProcessW = modkernel32.NewProc("CreateProcessW");
-		procOpenProcess = modkernel32.NewProc("OpenProcess");
-		procTerminateProcess = modkernel32.NewProc("TerminateProcess");
-		procGetExitCodeProcess = modkernel32.NewProc("GetExitCodeProcess");
-		procGetStartupInfoW = modkernel32.NewProc("GetStartupInfoW");
-		procGetCurrentProcess = modkernel32.NewProc("GetCurrentProcess");
-		procGetProcessTimes = modkernel32.NewProc("GetProcessTimes");
-		procDuplicateHandle = modkernel32.NewProc("DuplicateHandle");
-		procWaitForSingleObject = modkernel32.NewProc("WaitForSingleObject");
-		procGetTempPathW = modkernel32.NewProc("GetTempPathW");
-		procCreatePipe = modkernel32.NewProc("CreatePipe");
-		procGetFileType = modkernel32.NewProc("GetFileType");
-		procCryptAcquireContextW = modadvapi32.NewProc("CryptAcquireContextW");
-		procCryptReleaseContext = modadvapi32.NewProc("CryptReleaseContext");
-		procCryptGenRandom = modadvapi32.NewProc("CryptGenRandom");
-		procGetEnvironmentStringsW = modkernel32.NewProc("GetEnvironmentStringsW");
-		procFreeEnvironmentStringsW = modkernel32.NewProc("FreeEnvironmentStringsW");
-		procGetEnvironmentVariableW = modkernel32.NewProc("GetEnvironmentVariableW");
-		procSetEnvironmentVariableW = modkernel32.NewProc("SetEnvironmentVariableW");
-		procSetFileTime = modkernel32.NewProc("SetFileTime");
-		procGetFileAttributesW = modkernel32.NewProc("GetFileAttributesW");
-		procSetFileAttributesW = modkernel32.NewProc("SetFileAttributesW");
-		procGetFileAttributesExW = modkernel32.NewProc("GetFileAttributesExW");
-		procGetCommandLineW = modkernel32.NewProc("GetCommandLineW");
-		procCommandLineToArgvW = modshell32.NewProc("CommandLineToArgvW");
-		procLocalFree = modkernel32.NewProc("LocalFree");
-		procSetHandleInformation = modkernel32.NewProc("SetHandleInformation");
-		procFlushFileBuffers = modkernel32.NewProc("FlushFileBuffers");
-		procGetFullPathNameW = modkernel32.NewProc("GetFullPathNameW");
-		procGetLongPathNameW = modkernel32.NewProc("GetLongPathNameW");
-		procGetShortPathNameW = modkernel32.NewProc("GetShortPathNameW");
-		procCreateFileMappingW = modkernel32.NewProc("CreateFileMappingW");
-		procMapViewOfFile = modkernel32.NewProc("MapViewOfFile");
-		procUnmapViewOfFile = modkernel32.NewProc("UnmapViewOfFile");
-		procFlushViewOfFile = modkernel32.NewProc("FlushViewOfFile");
-		procVirtualLock = modkernel32.NewProc("VirtualLock");
-		procVirtualUnlock = modkernel32.NewProc("VirtualUnlock");
-		procTransmitFile = modmswsock.NewProc("TransmitFile");
-		procReadDirectoryChangesW = modkernel32.NewProc("ReadDirectoryChangesW");
-		procCertOpenSystemStoreW = modcrypt32.NewProc("CertOpenSystemStoreW");
-		procCertOpenStore = modcrypt32.NewProc("CertOpenStore");
-		procCertEnumCertificatesInStore = modcrypt32.NewProc("CertEnumCertificatesInStore");
-		procCertAddCertificateContextToStore = modcrypt32.NewProc("CertAddCertificateContextToStore");
-		procCertCloseStore = modcrypt32.NewProc("CertCloseStore");
-		procCertGetCertificateChain = modcrypt32.NewProc("CertGetCertificateChain");
-		procCertFreeCertificateChain = modcrypt32.NewProc("CertFreeCertificateChain");
-		procCertCreateCertificateContext = modcrypt32.NewProc("CertCreateCertificateContext");
-		procCertFreeCertificateContext = modcrypt32.NewProc("CertFreeCertificateContext");
-		procCertVerifyCertificateChainPolicy = modcrypt32.NewProc("CertVerifyCertificateChainPolicy");
-		procRegOpenKeyExW = modadvapi32.NewProc("RegOpenKeyExW");
-		procRegCloseKey = modadvapi32.NewProc("RegCloseKey");
-		procRegQueryInfoKeyW = modadvapi32.NewProc("RegQueryInfoKeyW");
-		procRegEnumKeyExW = modadvapi32.NewProc("RegEnumKeyExW");
-		procRegQueryValueExW = modadvapi32.NewProc("RegQueryValueExW");
-		procGetCurrentProcessId = modkernel32.NewProc("GetCurrentProcessId");
-		procGetConsoleMode = modkernel32.NewProc("GetConsoleMode");
-		procWriteConsoleW = modkernel32.NewProc("WriteConsoleW");
-		procReadConsoleW = modkernel32.NewProc("ReadConsoleW");
-		procCreateToolhelp32Snapshot = modkernel32.NewProc("CreateToolhelp32Snapshot");
-		procProcess32FirstW = modkernel32.NewProc("Process32FirstW");
-		procProcess32NextW = modkernel32.NewProc("Process32NextW");
-		procDeviceIoControl = modkernel32.NewProc("DeviceIoControl");
-		procCreateSymbolicLinkW = modkernel32.NewProc("CreateSymbolicLinkW");
-		procCreateHardLinkW = modkernel32.NewProc("CreateHardLinkW");
-		procWSAStartup = modws2_32.NewProc("WSAStartup");
-		procWSACleanup = modws2_32.NewProc("WSACleanup");
-		procWSAIoctl = modws2_32.NewProc("WSAIoctl");
-		procsocket = modws2_32.NewProc("socket");
-		procsetsockopt = modws2_32.NewProc("setsockopt");
-		procgetsockopt = modws2_32.NewProc("getsockopt");
-		procbind = modws2_32.NewProc("bind");
-		procconnect = modws2_32.NewProc("connect");
-		procgetsockname = modws2_32.NewProc("getsockname");
-		procgetpeername = modws2_32.NewProc("getpeername");
-		proclisten = modws2_32.NewProc("listen");
-		procshutdown = modws2_32.NewProc("shutdown");
-		procclosesocket = modws2_32.NewProc("closesocket");
-		procAcceptEx = modmswsock.NewProc("AcceptEx");
-		procGetAcceptExSockaddrs = modmswsock.NewProc("GetAcceptExSockaddrs");
-		procWSARecv = modws2_32.NewProc("WSARecv");
-		procWSASend = modws2_32.NewProc("WSASend");
-		procWSARecvFrom = modws2_32.NewProc("WSARecvFrom");
-		procWSASendTo = modws2_32.NewProc("WSASendTo");
-		procgethostbyname = modws2_32.NewProc("gethostbyname");
-		procgetservbyname = modws2_32.NewProc("getservbyname");
-		procntohs = modws2_32.NewProc("ntohs");
-		procgetprotobyname = modws2_32.NewProc("getprotobyname");
-		procDnsQuery_W = moddnsapi.NewProc("DnsQuery_W");
-		procDnsRecordListFree = moddnsapi.NewProc("DnsRecordListFree");
-		procDnsNameCompare_W = moddnsapi.NewProc("DnsNameCompare_W");
-		procGetAddrInfoW = modws2_32.NewProc("GetAddrInfoW");
-		procFreeAddrInfoW = modws2_32.NewProc("FreeAddrInfoW");
-		procGetIfEntry = modiphlpapi.NewProc("GetIfEntry");
-		procGetAdaptersInfo = modiphlpapi.NewProc("GetAdaptersInfo");
-		procSetFileCompletionNotificationModes = modkernel32.NewProc("SetFileCompletionNotificationModes");
-		procWSAEnumProtocolsW = modws2_32.NewProc("WSAEnumProtocolsW");
-		procTranslateNameW = modsecur32.NewProc("TranslateNameW");
-		procGetUserNameExW = modsecur32.NewProc("GetUserNameExW");
-		procNetUserGetInfo = modnetapi32.NewProc("NetUserGetInfo");
-		procNetGetJoinInformation = modnetapi32.NewProc("NetGetJoinInformation");
-		procNetApiBufferFree = modnetapi32.NewProc("NetApiBufferFree");
-		procLookupAccountSidW = modadvapi32.NewProc("LookupAccountSidW");
-		procLookupAccountNameW = modadvapi32.NewProc("LookupAccountNameW");
-		procConvertSidToStringSidW = modadvapi32.NewProc("ConvertSidToStringSidW");
-		procConvertStringSidToSidW = modadvapi32.NewProc("ConvertStringSidToSidW");
-		procGetLengthSid = modadvapi32.NewProc("GetLengthSid");
-		procCopySid = modadvapi32.NewProc("CopySid");
-		procOpenProcessToken = modadvapi32.NewProc("OpenProcessToken");
-		procGetTokenInformation = modadvapi32.NewProc("GetTokenInformation");
-		procGetUserProfileDirectoryW = moduserenv.NewProc("GetUserProfileDirectoryW");
-		$pkg.Stdin = getStdHandle(-10);
-		$pkg.Stdout = getStdHandle(-11);
-		$pkg.Stderr = getStdHandle(-12);
+		envs = runtime_envs();
+		$pkg.Stdin = 0;
+		$pkg.Stdout = 1;
+		$pkg.Stderr = 2;
+		errors = $toNativeArray($kindString, ["", "operation not permitted", "no such file or directory", "no such process", "interrupted system call", "input/output error", "no such device or address", "argument list too long", "exec format error", "bad file descriptor", "no child processes", "resource temporarily unavailable", "cannot allocate memory", "permission denied", "bad address", "block device required", "device or resource busy", "file exists", "invalid cross-device link", "no such device", "not a directory", "is a directory", "invalid argument", "too many open files in system", "too many open files", "inappropriate ioctl for device", "text file busy", "file too large", "no space left on device", "illegal seek", "read-only file system", "too many links", "broken pipe", "numerical argument out of domain", "numerical result out of range", "resource deadlock avoided", "file name too long", "no locks available", "function not implemented", "directory not empty", "too many levels of symbolic links", "", "no message of desired type", "identifier removed", "channel number out of range", "level 2 not synchronized", "level 3 halted", "level 3 reset", "link number out of range", "protocol driver not attached", "no CSI structure available", "level 2 halted", "invalid exchange", "invalid request descriptor", "exchange full", "no anode", "invalid request code", "invalid slot", "", "bad font file format", "device not a stream", "no data available", "timer expired", "out of streams resources", "machine is not on the network", "package not installed", "object is remote", "link has been severed", "advertise error", "srmount error", "communication error on send", "protocol error", "multihop attempted", "RFS specific error", "bad message", "value too large for defined data type", "name not unique on network", "file descriptor in bad state", "remote address changed", "can not access a needed shared library", "accessing a corrupted shared library", ".lib section in a.out corrupted", "attempting to link in too many shared libraries", "cannot exec a shared library directly", "invalid or incomplete multibyte or wide character", "interrupted system call should be restarted", "streams pipe error", "too many users", "socket operation on non-socket", "destination address required", "message too long", "protocol wrong type for socket", "protocol not available", "protocol not supported", "socket type not supported", "operation not supported", "protocol family not supported", "address family not supported by protocol", "address already in use", "cannot assign requested address", "network is down", "network is unreachable", "network dropped connection on reset", "software caused connection abort", "connection reset by peer", "no buffer space available", "transport endpoint is already connected", "transport endpoint is not connected", "cannot send after transport endpoint shutdown", "too many references: cannot splice", "connection timed out", "connection refused", "host is down", "no route to host", "operation already in progress", "operation now in progress", "stale NFS file handle", "structure needs cleaning", "not a XENIX named type file", "no XENIX semaphores available", "is a named type file", "remote I/O error", "disk quota exceeded", "no medium found", "wrong medium type", "operation canceled", "required key not available", "key has expired", "key has been revoked", "key was rejected by service", "owner died", "state not recoverable", "operation not possible due to RF-kill"]);
+		mapper = new mmapper.ptr(new sync.Mutex.ptr(), new $Map(), mmap, munmap);
 		init();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
@@ -4507,7 +3880,7 @@ $packages["strings"] = (function() {
 	return $pkg;
 })();
 $packages["time"] = (function() {
-	var $pkg = {}, $init, errors, js, nosync, runtime, strings, syscall, ParseError, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, sliceType$2, ptrType, arrayType$1, sliceType$3, arrayType$2, arrayType$3, ptrType$1, ptrType$7, ptrType$10, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, months, days, daysBefore, utcLoc, utcLoc_ptr, localLoc, localLoc_ptr, localOnce, zoneinfo, badData, _tuple, initLocal, startsWithLowerCase, nextStdChunk, match, lookup, appendUint, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, absWeekday, absClock, fmtFrac, fmtInt, absDate, Unix, isLeap, norm, Date, div, FixedZone;
+	var $pkg = {}, $init, errors, js, nosync, runtime, strings, syscall, ParseError, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, sliceType$2, ptrType, arrayType, sliceType$3, arrayType$1, arrayType$2, ptrType$1, ptrType$3, ptrType$6, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, months, days, daysBefore, utcLoc, utcLoc_ptr, localLoc, localLoc_ptr, localOnce, zoneinfo, badData, zoneDirs, _tuple, _r, initLocal, startsWithLowerCase, nextStdChunk, match, lookup, appendUint, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, absWeekday, absClock, fmtFrac, fmtInt, absDate, Unix, isLeap, norm, Date, div, FixedZone;
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	nosync = $packages["github.com/gopherjs/gopherjs/nosync"];
@@ -4593,13 +3966,13 @@ $packages["time"] = (function() {
 	sliceType$1 = $sliceType(zone);
 	sliceType$2 = $sliceType(zoneTrans);
 	ptrType = $ptrType(zone);
-	arrayType$1 = $arrayType($Uint8, 32);
+	arrayType = $arrayType($Uint8, 32);
 	sliceType$3 = $sliceType($Uint8);
-	arrayType$2 = $arrayType($Uint8, 9);
-	arrayType$3 = $arrayType($Uint8, 64);
+	arrayType$1 = $arrayType($Uint8, 9);
+	arrayType$2 = $arrayType($Uint8, 64);
 	ptrType$1 = $ptrType(Location);
-	ptrType$7 = $ptrType(ParseError);
-	ptrType$10 = $ptrType(Time);
+	ptrType$3 = $ptrType(ParseError);
+	ptrType$6 = $ptrType(Time);
 	initLocal = function() {
 		var $ptr, d, i, j, s;
 		d = new ($global.Date)();
@@ -4798,7 +4171,7 @@ $packages["time"] = (function() {
 		return [-1, val, errBad];
 	};
 	appendUint = function(b, x, pad) {
-		var $ptr, _q, _q$1, _r, _r$1, b, buf, n, pad, x;
+		var $ptr, _q, _q$1, _r$1, _r$2, b, buf, n, pad, x;
 		if (x < 10) {
 			if (!((pad === 0))) {
 				b = $append(b, pad);
@@ -4807,10 +4180,10 @@ $packages["time"] = (function() {
 		}
 		if (x < 100) {
 			b = $append(b, ((48 + (_q = x / 10, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >>> 0 : $throwRuntimeError("integer divide by zero")) >>> 0) << 24 >>> 24));
-			b = $append(b, ((48 + (_r = x % 10, _r === _r ? _r : $throwRuntimeError("integer divide by zero")) >>> 0) << 24 >>> 24));
+			b = $append(b, ((48 + (_r$1 = x % 10, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) >>> 0) << 24 >>> 24));
 			return b;
 		}
-		buf = $clone(arrayType$1.zero(), arrayType$1);
+		buf = $clone(arrayType.zero(), arrayType);
 		n = 32;
 		if (x === 0) {
 			return $append(b, 48);
@@ -4818,7 +4191,7 @@ $packages["time"] = (function() {
 		while (true) {
 			if (!(x >= 10)) { break; }
 			n = n - (1) >> 0;
-			((n < 0 || n >= buf.length) ? $throwRuntimeError("index out of range") : buf[n] = (((_r$1 = x % 10, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
+			((n < 0 || n >= buf.length) ? $throwRuntimeError("index out of range") : buf[n] = (((_r$2 = x % 10, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
 			x = (_q$1 = x / (10), (_q$1 === _q$1 && _q$1 !== 1/0 && _q$1 !== -1/0) ? _q$1 >>> 0 : $throwRuntimeError("integer divide by zero"));
 		}
 		n = n - (1) >> 0;
@@ -4847,14 +4220,14 @@ $packages["time"] = (function() {
 		return [x, err];
 	};
 	formatNano = function(b, nanosec, n, trim) {
-		var $ptr, _q, _r, b, buf, n, nanosec, start, trim, u, x;
+		var $ptr, _q, _r$1, b, buf, n, nanosec, start, trim, u, x;
 		u = nanosec;
-		buf = $clone(arrayType$2.zero(), arrayType$2);
+		buf = $clone(arrayType$1.zero(), arrayType$1);
 		start = 9;
 		while (true) {
 			if (!(start > 0)) { break; }
 			start = start - (1) >> 0;
-			((start < 0 || start >= buf.length) ? $throwRuntimeError("index out of range") : buf[start] = (((_r = u % 10, _r === _r ? _r : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
+			((start < 0 || start >= buf.length) ? $throwRuntimeError("index out of range") : buf[start] = (((_r$1 = u % 10, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
 			u = (_q = u / (10), (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >>> 0 : $throwRuntimeError("integer divide by zero"));
 		}
 		if (n > 9) {
@@ -4873,20 +4246,20 @@ $packages["time"] = (function() {
 		return $appendSlice(b, $subslice(new sliceType$3(buf), 0, n));
 	};
 	Time.ptr.prototype.String = function() {
-		var $ptr, _r, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.Format("2006-01-02 15:04:05.999999999 -0700 MST"); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return _r;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.String }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.Format("2006-01-02 15:04:05.999999999 -0700 MST"); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return _r$1;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.String }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.String = function() { return this.$val.String(); };
 	Time.ptr.prototype.Format = function(layout) {
-		var $ptr, _q, _q$1, _q$2, _q$3, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _ref, _tuple$1, _tuple$2, _tuple$3, _tuple$4, abs, absoffset, b, buf, day, hour, hr, hr$1, layout, m, max, min, month, name, offset, prefix, s, sec, std, suffix, t, y, y$1, year, zone$1, zone$2, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _q$1 = $f._q$1; _q$2 = $f._q$2; _q$3 = $f._q$3; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _ref = $f._ref; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; abs = $f.abs; absoffset = $f.absoffset; b = $f.b; buf = $f.buf; day = $f.day; hour = $f.hour; hr = $f.hr; hr$1 = $f.hr$1; layout = $f.layout; m = $f.m; max = $f.max; min = $f.min; month = $f.month; name = $f.name; offset = $f.offset; prefix = $f.prefix; s = $f.s; sec = $f.sec; std = $f.std; suffix = $f.suffix; t = $f.t; y = $f.y; y$1 = $f.y$1; year = $f.year; zone$1 = $f.zone$1; zone$2 = $f.zone$2; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _q, _q$1, _q$2, _q$3, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, _ref, _tuple$1, _tuple$2, _tuple$3, _tuple$4, abs, absoffset, b, buf, day, hour, hr, hr$1, layout, m, max, min, month, name, offset, prefix, s, sec, std, suffix, t, y, y$1, year, zone$1, zone$2, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _q$1 = $f._q$1; _q$2 = $f._q$2; _q$3 = $f._q$3; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _r$7 = $f._r$7; _ref = $f._ref; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; abs = $f.abs; absoffset = $f.absoffset; b = $f.b; buf = $f.buf; day = $f.day; hour = $f.hour; hr = $f.hr; hr$1 = $f.hr$1; layout = $f.layout; m = $f.m; max = $f.max; min = $f.min; month = $f.month; name = $f.name; offset = $f.offset; prefix = $f.prefix; s = $f.s; sec = $f.sec; std = $f.std; suffix = $f.suffix; t = $f.t; y = $f.y; y$1 = $f.y$1; year = $f.year; zone$1 = $f.zone$1; zone$2 = $f.zone$2; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.locabs(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; name = _tuple$1[0]; offset = _tuple$1[1]; abs = _tuple$1[2];
+		_r$1 = t.locabs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; name = _tuple$1[0]; offset = _tuple$1[1]; abs = _tuple$1[2];
 		year = -1;
 		month = 0;
 		day = 0;
@@ -4894,7 +4267,7 @@ $packages["time"] = (function() {
 		min = 0;
 		sec = 0;
 		b = sliceType$3.nil;
-		buf = $clone(arrayType$3.zero(), arrayType$3);
+		buf = $clone(arrayType$2.zero(), arrayType$2);
 		max = layout.length + 10 >> 0;
 		if (max <= 64) {
 			b = $subslice(new sliceType$3(buf), 0, 0);
@@ -4923,7 +4296,7 @@ $packages["time"] = (function() {
 				if (y < 0) {
 					y = -y;
 				}
-				b = appendUint(b, ((_r$1 = y % 100, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
+				b = appendUint(b, ((_r$2 = y % 100, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
 			} else if (_ref === 273) {
 				y$1 = year;
 				if (year <= -1000) {
@@ -4969,13 +4342,13 @@ $packages["time"] = (function() {
 			} else if (_ref === 522) {
 				b = appendUint(b, (hour >>> 0), 48);
 			} else if (_ref === 523) {
-				hr = (_r$2 = hour % 12, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero"));
+				hr = (_r$3 = hour % 12, _r$3 === _r$3 ? _r$3 : $throwRuntimeError("integer divide by zero"));
 				if (hr === 0) {
 					hr = 12;
 				}
 				b = appendUint(b, (hr >>> 0), 0);
 			} else if (_ref === 524) {
-				hr$1 = (_r$3 = hour % 12, _r$3 === _r$3 ? _r$3 : $throwRuntimeError("integer divide by zero"));
+				hr$1 = (_r$4 = hour % 12, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
 				if (hr$1 === 0) {
 					hr$1 = 12;
 				}
@@ -5018,12 +4391,12 @@ $packages["time"] = (function() {
 				if ((std === 24) || (std === 29) || (std === 25) || (std === 30)) {
 					b = $append(b, 58);
 				}
-				b = appendUint(b, ((_r$4 = zone$1 % 60, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
+				b = appendUint(b, ((_r$5 = zone$1 % 60, _r$5 === _r$5 ? _r$5 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
 				if ((std === 23) || (std === 27) || (std === 30) || (std === 25)) {
 					if ((std === 30) || (std === 25)) {
 						b = $append(b, 58);
 					}
-					b = appendUint(b, ((_r$5 = absoffset % 60, _r$5 === _r$5 ? _r$5 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
+					b = appendUint(b, ((_r$6 = absoffset % 60, _r$6 === _r$6 ? _r$6 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
 				}
 			} else if (_ref === 21) {
 				if (!(name === "")) {
@@ -5038,13 +4411,13 @@ $packages["time"] = (function() {
 					b = $append(b, 43);
 				}
 				b = appendUint(b, ((_q$3 = zone$2 / 60, (_q$3 === _q$3 && _q$3 !== 1/0 && _q$3 !== -1/0) ? _q$3 >> 0 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
-				b = appendUint(b, ((_r$6 = zone$2 % 60, _r$6 === _r$6 ? _r$6 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
+				b = appendUint(b, ((_r$7 = zone$2 % 60, _r$7 === _r$7 ? _r$7 : $throwRuntimeError("integer divide by zero")) >>> 0), 48);
 			} else if (_ref === 31 || _ref === 32) {
 				b = formatNano(b, (t.Nanosecond() >>> 0), std >> 16 >> 0, (std & 65535) === 32);
 			} }
 		}
 		return $bytesToString(b);
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Format }; } $f.$ptr = $ptr; $f._q = _q; $f._q$1 = _q$1; $f._q$2 = _q$2; $f._q$3 = _q$3; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._ref = _ref; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f.abs = abs; $f.absoffset = absoffset; $f.b = b; $f.buf = buf; $f.day = day; $f.hour = hour; $f.hr = hr; $f.hr$1 = hr$1; $f.layout = layout; $f.m = m; $f.max = max; $f.min = min; $f.month = month; $f.name = name; $f.offset = offset; $f.prefix = prefix; $f.s = s; $f.sec = sec; $f.std = std; $f.suffix = suffix; $f.t = t; $f.y = y; $f.y$1 = y$1; $f.year = year; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Format }; } $f.$ptr = $ptr; $f._q = _q; $f._q$1 = _q$1; $f._q$2 = _q$2; $f._q$3 = _q$3; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._ref = _ref; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f.abs = abs; $f.absoffset = absoffset; $f.b = b; $f.buf = buf; $f.day = day; $f.hour = hour; $f.hr = hr; $f.hr$1 = hr$1; $f.layout = layout; $f.m = m; $f.max = max; $f.min = min; $f.month = month; $f.name = name; $f.offset = offset; $f.prefix = prefix; $f.s = s; $f.sec = sec; $f.std = std; $f.suffix = suffix; $f.t = t; $f.y = y; $f.y$1 = y$1; $f.year = year; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Format = function(layout) { return this.$val.Format(layout); };
 	quote = function(s) {
@@ -5110,16 +4483,16 @@ $packages["time"] = (function() {
 		return [value, $ifaceNil];
 	};
 	Parse = function(layout, value) {
-		var $ptr, _r, layout, value, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; layout = $f.layout; value = $f.value; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		_r = parse(layout, value, $pkg.UTC, $pkg.Local); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return _r;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Parse }; } $f.$ptr = $ptr; $f._r = _r; $f.layout = layout; $f.value = value; $f.$s = $s; $f.$r = $r; return $f;
+		var $ptr, _r$1, layout, value, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; layout = $f.layout; value = $f.value; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		_r$1 = parse(layout, value, $pkg.UTC, $pkg.Local); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return _r$1;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Parse }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.layout = layout; $f.value = value; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Parse = Parse;
 	parse = function(layout, value, defaultLocation, local) {
-		var $ptr, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _ref, _ref$1, _ref$2, _ref$3, _tmp, _tmp$1, _tmp$10, _tmp$11, _tmp$12, _tmp$13, _tmp$14, _tmp$15, _tmp$16, _tmp$17, _tmp$18, _tmp$19, _tmp$2, _tmp$20, _tmp$21, _tmp$22, _tmp$23, _tmp$24, _tmp$25, _tmp$26, _tmp$27, _tmp$28, _tmp$29, _tmp$3, _tmp$30, _tmp$31, _tmp$32, _tmp$33, _tmp$34, _tmp$35, _tmp$36, _tmp$37, _tmp$38, _tmp$39, _tmp$4, _tmp$40, _tmp$41, _tmp$42, _tmp$43, _tmp$5, _tmp$6, _tmp$7, _tmp$8, _tmp$9, _tuple$1, _tuple$10, _tuple$11, _tuple$12, _tuple$13, _tuple$14, _tuple$15, _tuple$16, _tuple$17, _tuple$18, _tuple$19, _tuple$2, _tuple$20, _tuple$21, _tuple$22, _tuple$23, _tuple$24, _tuple$25, _tuple$3, _tuple$4, _tuple$5, _tuple$6, _tuple$7, _tuple$8, _tuple$9, alayout, amSet, avalue, day, defaultLocation, err, hour, hour$1, hr, i, layout, local, min, min$1, mm, month, n, n$1, name, ndigit, nsec, offset, offset$1, ok, ok$1, p, pmSet, prefix, rangeErrString, sec, seconds, sign, ss, std, stdstr, suffix, t, t$1, value, x, x$1, x$2, x$3, x$4, x$5, year, z, zoneName, zoneOffset, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _ref = $f._ref; _ref$1 = $f._ref$1; _ref$2 = $f._ref$2; _ref$3 = $f._ref$3; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$10 = $f._tmp$10; _tmp$11 = $f._tmp$11; _tmp$12 = $f._tmp$12; _tmp$13 = $f._tmp$13; _tmp$14 = $f._tmp$14; _tmp$15 = $f._tmp$15; _tmp$16 = $f._tmp$16; _tmp$17 = $f._tmp$17; _tmp$18 = $f._tmp$18; _tmp$19 = $f._tmp$19; _tmp$2 = $f._tmp$2; _tmp$20 = $f._tmp$20; _tmp$21 = $f._tmp$21; _tmp$22 = $f._tmp$22; _tmp$23 = $f._tmp$23; _tmp$24 = $f._tmp$24; _tmp$25 = $f._tmp$25; _tmp$26 = $f._tmp$26; _tmp$27 = $f._tmp$27; _tmp$28 = $f._tmp$28; _tmp$29 = $f._tmp$29; _tmp$3 = $f._tmp$3; _tmp$30 = $f._tmp$30; _tmp$31 = $f._tmp$31; _tmp$32 = $f._tmp$32; _tmp$33 = $f._tmp$33; _tmp$34 = $f._tmp$34; _tmp$35 = $f._tmp$35; _tmp$36 = $f._tmp$36; _tmp$37 = $f._tmp$37; _tmp$38 = $f._tmp$38; _tmp$39 = $f._tmp$39; _tmp$4 = $f._tmp$4; _tmp$40 = $f._tmp$40; _tmp$41 = $f._tmp$41; _tmp$42 = $f._tmp$42; _tmp$43 = $f._tmp$43; _tmp$5 = $f._tmp$5; _tmp$6 = $f._tmp$6; _tmp$7 = $f._tmp$7; _tmp$8 = $f._tmp$8; _tmp$9 = $f._tmp$9; _tuple$1 = $f._tuple$1; _tuple$10 = $f._tuple$10; _tuple$11 = $f._tuple$11; _tuple$12 = $f._tuple$12; _tuple$13 = $f._tuple$13; _tuple$14 = $f._tuple$14; _tuple$15 = $f._tuple$15; _tuple$16 = $f._tuple$16; _tuple$17 = $f._tuple$17; _tuple$18 = $f._tuple$18; _tuple$19 = $f._tuple$19; _tuple$2 = $f._tuple$2; _tuple$20 = $f._tuple$20; _tuple$21 = $f._tuple$21; _tuple$22 = $f._tuple$22; _tuple$23 = $f._tuple$23; _tuple$24 = $f._tuple$24; _tuple$25 = $f._tuple$25; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; _tuple$5 = $f._tuple$5; _tuple$6 = $f._tuple$6; _tuple$7 = $f._tuple$7; _tuple$8 = $f._tuple$8; _tuple$9 = $f._tuple$9; alayout = $f.alayout; amSet = $f.amSet; avalue = $f.avalue; day = $f.day; defaultLocation = $f.defaultLocation; err = $f.err; hour = $f.hour; hour$1 = $f.hour$1; hr = $f.hr; i = $f.i; layout = $f.layout; local = $f.local; min = $f.min; min$1 = $f.min$1; mm = $f.mm; month = $f.month; n = $f.n; n$1 = $f.n$1; name = $f.name; ndigit = $f.ndigit; nsec = $f.nsec; offset = $f.offset; offset$1 = $f.offset$1; ok = $f.ok; ok$1 = $f.ok$1; p = $f.p; pmSet = $f.pmSet; prefix = $f.prefix; rangeErrString = $f.rangeErrString; sec = $f.sec; seconds = $f.seconds; sign = $f.sign; ss = $f.ss; std = $f.std; stdstr = $f.stdstr; suffix = $f.suffix; t = $f.t; t$1 = $f.t$1; value = $f.value; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; year = $f.year; z = $f.z; zoneName = $f.zoneName; zoneOffset = $f.zoneOffset; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _ref, _ref$1, _ref$2, _ref$3, _tmp, _tmp$1, _tmp$10, _tmp$11, _tmp$12, _tmp$13, _tmp$14, _tmp$15, _tmp$16, _tmp$17, _tmp$18, _tmp$19, _tmp$2, _tmp$20, _tmp$21, _tmp$22, _tmp$23, _tmp$24, _tmp$25, _tmp$26, _tmp$27, _tmp$28, _tmp$29, _tmp$3, _tmp$30, _tmp$31, _tmp$32, _tmp$33, _tmp$34, _tmp$35, _tmp$36, _tmp$37, _tmp$38, _tmp$39, _tmp$4, _tmp$40, _tmp$41, _tmp$42, _tmp$43, _tmp$5, _tmp$6, _tmp$7, _tmp$8, _tmp$9, _tuple$1, _tuple$10, _tuple$11, _tuple$12, _tuple$13, _tuple$14, _tuple$15, _tuple$16, _tuple$17, _tuple$18, _tuple$19, _tuple$2, _tuple$20, _tuple$21, _tuple$22, _tuple$23, _tuple$24, _tuple$25, _tuple$3, _tuple$4, _tuple$5, _tuple$6, _tuple$7, _tuple$8, _tuple$9, alayout, amSet, avalue, day, defaultLocation, err, hour, hour$1, hr, i, layout, local, min, min$1, mm, month, n, n$1, name, ndigit, nsec, offset, offset$1, ok, ok$1, p, pmSet, prefix, rangeErrString, sec, seconds, sign, ss, std, stdstr, suffix, t, t$1, value, x, x$1, x$2, x$3, x$4, x$5, year, z, zoneName, zoneOffset, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _ref = $f._ref; _ref$1 = $f._ref$1; _ref$2 = $f._ref$2; _ref$3 = $f._ref$3; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$10 = $f._tmp$10; _tmp$11 = $f._tmp$11; _tmp$12 = $f._tmp$12; _tmp$13 = $f._tmp$13; _tmp$14 = $f._tmp$14; _tmp$15 = $f._tmp$15; _tmp$16 = $f._tmp$16; _tmp$17 = $f._tmp$17; _tmp$18 = $f._tmp$18; _tmp$19 = $f._tmp$19; _tmp$2 = $f._tmp$2; _tmp$20 = $f._tmp$20; _tmp$21 = $f._tmp$21; _tmp$22 = $f._tmp$22; _tmp$23 = $f._tmp$23; _tmp$24 = $f._tmp$24; _tmp$25 = $f._tmp$25; _tmp$26 = $f._tmp$26; _tmp$27 = $f._tmp$27; _tmp$28 = $f._tmp$28; _tmp$29 = $f._tmp$29; _tmp$3 = $f._tmp$3; _tmp$30 = $f._tmp$30; _tmp$31 = $f._tmp$31; _tmp$32 = $f._tmp$32; _tmp$33 = $f._tmp$33; _tmp$34 = $f._tmp$34; _tmp$35 = $f._tmp$35; _tmp$36 = $f._tmp$36; _tmp$37 = $f._tmp$37; _tmp$38 = $f._tmp$38; _tmp$39 = $f._tmp$39; _tmp$4 = $f._tmp$4; _tmp$40 = $f._tmp$40; _tmp$41 = $f._tmp$41; _tmp$42 = $f._tmp$42; _tmp$43 = $f._tmp$43; _tmp$5 = $f._tmp$5; _tmp$6 = $f._tmp$6; _tmp$7 = $f._tmp$7; _tmp$8 = $f._tmp$8; _tmp$9 = $f._tmp$9; _tuple$1 = $f._tuple$1; _tuple$10 = $f._tuple$10; _tuple$11 = $f._tuple$11; _tuple$12 = $f._tuple$12; _tuple$13 = $f._tuple$13; _tuple$14 = $f._tuple$14; _tuple$15 = $f._tuple$15; _tuple$16 = $f._tuple$16; _tuple$17 = $f._tuple$17; _tuple$18 = $f._tuple$18; _tuple$19 = $f._tuple$19; _tuple$2 = $f._tuple$2; _tuple$20 = $f._tuple$20; _tuple$21 = $f._tuple$21; _tuple$22 = $f._tuple$22; _tuple$23 = $f._tuple$23; _tuple$24 = $f._tuple$24; _tuple$25 = $f._tuple$25; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; _tuple$5 = $f._tuple$5; _tuple$6 = $f._tuple$6; _tuple$7 = $f._tuple$7; _tuple$8 = $f._tuple$8; _tuple$9 = $f._tuple$9; alayout = $f.alayout; amSet = $f.amSet; avalue = $f.avalue; day = $f.day; defaultLocation = $f.defaultLocation; err = $f.err; hour = $f.hour; hour$1 = $f.hour$1; hr = $f.hr; i = $f.i; layout = $f.layout; local = $f.local; min = $f.min; min$1 = $f.min$1; mm = $f.mm; month = $f.month; n = $f.n; n$1 = $f.n$1; name = $f.name; ndigit = $f.ndigit; nsec = $f.nsec; offset = $f.offset; offset$1 = $f.offset$1; ok = $f.ok; ok$1 = $f.ok$1; p = $f.p; pmSet = $f.pmSet; prefix = $f.prefix; rangeErrString = $f.rangeErrString; sec = $f.sec; seconds = $f.seconds; sign = $f.sign; ss = $f.ss; std = $f.std; stdstr = $f.stdstr; suffix = $f.suffix; t = $f.t; t$1 = $f.t$1; value = $f.value; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; year = $f.year; z = $f.z; zoneName = $f.zoneName; zoneOffset = $f.zoneOffset; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_tmp = layout; _tmp$1 = value; alayout = _tmp; avalue = _tmp$1;
 		rangeErrString = "";
 		amSet = false;
@@ -5362,17 +4735,17 @@ $packages["time"] = (function() {
 		/* */ if (!(z === ptrType$1.nil)) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (!(z === ptrType$1.nil)) { */ case 1:
-			_r = Date(year, (month >> 0), day, hour, min, sec, nsec, z); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			return [_r, $ifaceNil];
+			_r$1 = Date(year, (month >> 0), day, hour, min, sec, nsec, z); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			return [_r$1, $ifaceNil];
 		/* } */ case 2:
 		/* */ if (!((zoneOffset === -1))) { $s = 4; continue; }
 		/* */ $s = 5; continue;
 		/* if (!((zoneOffset === -1))) { */ case 4:
-			_r$1 = Date(year, (month >> 0), day, hour, min, sec, nsec, $pkg.UTC); /* */ $s = 6; case 6: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-			t = $clone(_r$1, Time);
+			_r$2 = Date(year, (month >> 0), day, hour, min, sec, nsec, $pkg.UTC); /* */ $s = 6; case 6: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+			t = $clone(_r$2, Time);
 			t.sec = (x = t.sec, x$1 = new $Int64(0, zoneOffset), new $Int64(x.$high - x$1.$high, x.$low - x$1.$low));
-			_r$2 = local.lookup((x$2 = t.sec, new $Int64(x$2.$high + -15, x$2.$low + 2288912640))); /* */ $s = 7; case 7: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
-			_tuple$23 = _r$2; name = _tuple$23[0]; offset = _tuple$23[1];
+			_r$3 = local.lookup((x$2 = t.sec, new $Int64(x$2.$high + -15, x$2.$low + 2288912640))); /* */ $s = 7; case 7: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+			_tuple$23 = _r$3; name = _tuple$23[0]; offset = _tuple$23[1];
 			if ((offset === zoneOffset) && (zoneName === "" || name === zoneName)) {
 				t.loc = local;
 				return [t, $ifaceNil];
@@ -5383,10 +4756,10 @@ $packages["time"] = (function() {
 		/* */ if (!(zoneName === "")) { $s = 8; continue; }
 		/* */ $s = 9; continue;
 		/* if (!(zoneName === "")) { */ case 8:
-			_r$3 = Date(year, (month >> 0), day, hour, min, sec, nsec, $pkg.UTC); /* */ $s = 10; case 10: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
-			t$1 = $clone(_r$3, Time);
-			_r$4 = local.lookupName(zoneName, (x$3 = t$1.sec, new $Int64(x$3.$high + -15, x$3.$low + 2288912640))); /* */ $s = 11; case 11: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
-			_tuple$24 = _r$4; offset$1 = _tuple$24[0]; ok$1 = _tuple$24[2];
+			_r$4 = Date(year, (month >> 0), day, hour, min, sec, nsec, $pkg.UTC); /* */ $s = 10; case 10: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+			t$1 = $clone(_r$4, Time);
+			_r$5 = local.lookupName(zoneName, (x$3 = t$1.sec, new $Int64(x$3.$high + -15, x$3.$low + 2288912640))); /* */ $s = 11; case 11: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
+			_tuple$24 = _r$5; offset$1 = _tuple$24[0]; ok$1 = _tuple$24[2];
 			if (ok$1) {
 				t$1.sec = (x$4 = t$1.sec, x$5 = new $Int64(0, offset$1), new $Int64(x$4.$high - x$5.$high, x$4.$low - x$5.$low));
 				t$1.loc = local;
@@ -5399,9 +4772,9 @@ $packages["time"] = (function() {
 			t$1.loc = FixedZone(zoneName, offset$1);
 			return [t$1, $ifaceNil];
 		/* } */ case 9:
-		_r$5 = Date(year, (month >> 0), day, hour, min, sec, nsec, defaultLocation); /* */ $s = 12; case 12: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
-		return [_r$5, $ifaceNil];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: parse }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._ref = _ref; $f._ref$1 = _ref$1; $f._ref$2 = _ref$2; $f._ref$3 = _ref$3; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$10 = _tmp$10; $f._tmp$11 = _tmp$11; $f._tmp$12 = _tmp$12; $f._tmp$13 = _tmp$13; $f._tmp$14 = _tmp$14; $f._tmp$15 = _tmp$15; $f._tmp$16 = _tmp$16; $f._tmp$17 = _tmp$17; $f._tmp$18 = _tmp$18; $f._tmp$19 = _tmp$19; $f._tmp$2 = _tmp$2; $f._tmp$20 = _tmp$20; $f._tmp$21 = _tmp$21; $f._tmp$22 = _tmp$22; $f._tmp$23 = _tmp$23; $f._tmp$24 = _tmp$24; $f._tmp$25 = _tmp$25; $f._tmp$26 = _tmp$26; $f._tmp$27 = _tmp$27; $f._tmp$28 = _tmp$28; $f._tmp$29 = _tmp$29; $f._tmp$3 = _tmp$3; $f._tmp$30 = _tmp$30; $f._tmp$31 = _tmp$31; $f._tmp$32 = _tmp$32; $f._tmp$33 = _tmp$33; $f._tmp$34 = _tmp$34; $f._tmp$35 = _tmp$35; $f._tmp$36 = _tmp$36; $f._tmp$37 = _tmp$37; $f._tmp$38 = _tmp$38; $f._tmp$39 = _tmp$39; $f._tmp$4 = _tmp$4; $f._tmp$40 = _tmp$40; $f._tmp$41 = _tmp$41; $f._tmp$42 = _tmp$42; $f._tmp$43 = _tmp$43; $f._tmp$5 = _tmp$5; $f._tmp$6 = _tmp$6; $f._tmp$7 = _tmp$7; $f._tmp$8 = _tmp$8; $f._tmp$9 = _tmp$9; $f._tuple$1 = _tuple$1; $f._tuple$10 = _tuple$10; $f._tuple$11 = _tuple$11; $f._tuple$12 = _tuple$12; $f._tuple$13 = _tuple$13; $f._tuple$14 = _tuple$14; $f._tuple$15 = _tuple$15; $f._tuple$16 = _tuple$16; $f._tuple$17 = _tuple$17; $f._tuple$18 = _tuple$18; $f._tuple$19 = _tuple$19; $f._tuple$2 = _tuple$2; $f._tuple$20 = _tuple$20; $f._tuple$21 = _tuple$21; $f._tuple$22 = _tuple$22; $f._tuple$23 = _tuple$23; $f._tuple$24 = _tuple$24; $f._tuple$25 = _tuple$25; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f._tuple$5 = _tuple$5; $f._tuple$6 = _tuple$6; $f._tuple$7 = _tuple$7; $f._tuple$8 = _tuple$8; $f._tuple$9 = _tuple$9; $f.alayout = alayout; $f.amSet = amSet; $f.avalue = avalue; $f.day = day; $f.defaultLocation = defaultLocation; $f.err = err; $f.hour = hour; $f.hour$1 = hour$1; $f.hr = hr; $f.i = i; $f.layout = layout; $f.local = local; $f.min = min; $f.min$1 = min$1; $f.mm = mm; $f.month = month; $f.n = n; $f.n$1 = n$1; $f.name = name; $f.ndigit = ndigit; $f.nsec = nsec; $f.offset = offset; $f.offset$1 = offset$1; $f.ok = ok; $f.ok$1 = ok$1; $f.p = p; $f.pmSet = pmSet; $f.prefix = prefix; $f.rangeErrString = rangeErrString; $f.sec = sec; $f.seconds = seconds; $f.sign = sign; $f.ss = ss; $f.std = std; $f.stdstr = stdstr; $f.suffix = suffix; $f.t = t; $f.t$1 = t$1; $f.value = value; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.year = year; $f.z = z; $f.zoneName = zoneName; $f.zoneOffset = zoneOffset; $f.$s = $s; $f.$r = $r; return $f;
+		_r$6 = Date(year, (month >> 0), day, hour, min, sec, nsec, defaultLocation); /* */ $s = 12; case 12: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
+		return [_r$6, $ifaceNil];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: parse }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._ref = _ref; $f._ref$1 = _ref$1; $f._ref$2 = _ref$2; $f._ref$3 = _ref$3; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$10 = _tmp$10; $f._tmp$11 = _tmp$11; $f._tmp$12 = _tmp$12; $f._tmp$13 = _tmp$13; $f._tmp$14 = _tmp$14; $f._tmp$15 = _tmp$15; $f._tmp$16 = _tmp$16; $f._tmp$17 = _tmp$17; $f._tmp$18 = _tmp$18; $f._tmp$19 = _tmp$19; $f._tmp$2 = _tmp$2; $f._tmp$20 = _tmp$20; $f._tmp$21 = _tmp$21; $f._tmp$22 = _tmp$22; $f._tmp$23 = _tmp$23; $f._tmp$24 = _tmp$24; $f._tmp$25 = _tmp$25; $f._tmp$26 = _tmp$26; $f._tmp$27 = _tmp$27; $f._tmp$28 = _tmp$28; $f._tmp$29 = _tmp$29; $f._tmp$3 = _tmp$3; $f._tmp$30 = _tmp$30; $f._tmp$31 = _tmp$31; $f._tmp$32 = _tmp$32; $f._tmp$33 = _tmp$33; $f._tmp$34 = _tmp$34; $f._tmp$35 = _tmp$35; $f._tmp$36 = _tmp$36; $f._tmp$37 = _tmp$37; $f._tmp$38 = _tmp$38; $f._tmp$39 = _tmp$39; $f._tmp$4 = _tmp$4; $f._tmp$40 = _tmp$40; $f._tmp$41 = _tmp$41; $f._tmp$42 = _tmp$42; $f._tmp$43 = _tmp$43; $f._tmp$5 = _tmp$5; $f._tmp$6 = _tmp$6; $f._tmp$7 = _tmp$7; $f._tmp$8 = _tmp$8; $f._tmp$9 = _tmp$9; $f._tuple$1 = _tuple$1; $f._tuple$10 = _tuple$10; $f._tuple$11 = _tuple$11; $f._tuple$12 = _tuple$12; $f._tuple$13 = _tuple$13; $f._tuple$14 = _tuple$14; $f._tuple$15 = _tuple$15; $f._tuple$16 = _tuple$16; $f._tuple$17 = _tuple$17; $f._tuple$18 = _tuple$18; $f._tuple$19 = _tuple$19; $f._tuple$2 = _tuple$2; $f._tuple$20 = _tuple$20; $f._tuple$21 = _tuple$21; $f._tuple$22 = _tuple$22; $f._tuple$23 = _tuple$23; $f._tuple$24 = _tuple$24; $f._tuple$25 = _tuple$25; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f._tuple$5 = _tuple$5; $f._tuple$6 = _tuple$6; $f._tuple$7 = _tuple$7; $f._tuple$8 = _tuple$8; $f._tuple$9 = _tuple$9; $f.alayout = alayout; $f.amSet = amSet; $f.avalue = avalue; $f.day = day; $f.defaultLocation = defaultLocation; $f.err = err; $f.hour = hour; $f.hour$1 = hour$1; $f.hr = hr; $f.i = i; $f.layout = layout; $f.local = local; $f.min = min; $f.min$1 = min$1; $f.mm = mm; $f.month = month; $f.n = n; $f.n$1 = n$1; $f.name = name; $f.ndigit = ndigit; $f.nsec = nsec; $f.offset = offset; $f.offset$1 = offset$1; $f.ok = ok; $f.ok$1 = ok$1; $f.p = p; $f.pmSet = pmSet; $f.prefix = prefix; $f.rangeErrString = rangeErrString; $f.sec = sec; $f.seconds = seconds; $f.sign = sign; $f.ss = ss; $f.std = std; $f.stdstr = stdstr; $f.suffix = suffix; $f.t = t; $f.t$1 = t$1; $f.value = value; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.year = year; $f.z = z; $f.zoneName = zoneName; $f.zoneOffset = zoneOffset; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	parseTimeZone = function(value) {
 		var $ptr, _ref, _tmp, _tmp$1, _tmp$10, _tmp$11, _tmp$12, _tmp$13, _tmp$14, _tmp$15, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tmp$8, _tmp$9, c, length, nUpper, ok, value;
@@ -5564,15 +4937,15 @@ $packages["time"] = (function() {
 	};
 	Time.prototype.IsZero = function() { return this.$val.IsZero(); };
 	Time.ptr.prototype.abs = function() {
-		var $ptr, _r, _r$1, _tuple$1, l, offset, sec, t, x, x$1, x$2, x$3, x$4, x$5, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; l = $f.l; offset = $f.offset; sec = $f.sec; t = $f.t; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _tuple$1, l, offset, sec, t, x, x$1, x$2, x$3, x$4, x$5, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; l = $f.l; offset = $f.offset; sec = $f.sec; t = $f.t; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
 		l = t.loc;
 		/* */ if (l === ptrType$1.nil || l === localLoc) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (l === ptrType$1.nil || l === localLoc) { */ case 1:
-			_r = l.get(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			l = _r;
+			_r$1 = l.get(); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			l = _r$1;
 		/* } */ case 2:
 		sec = (x = t.sec, new $Int64(x.$high + -15, x.$low + 2288912640));
 		/* */ if (!(l === utcLoc)) { $s = 4; continue; }
@@ -5584,18 +4957,18 @@ $packages["time"] = (function() {
 				sec = (x$3 = new $Int64(0, l.cacheZone.offset), new $Int64(sec.$high + x$3.$high, sec.$low + x$3.$low));
 				$s = 8; continue;
 			/* } else { */ case 7:
-				_r$1 = l.lookup(sec); /* */ $s = 9; case 9: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-				_tuple$1 = _r$1; offset = _tuple$1[1];
+				_r$2 = l.lookup(sec); /* */ $s = 9; case 9: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				_tuple$1 = _r$2; offset = _tuple$1[1];
 				sec = (x$4 = new $Int64(0, offset), new $Int64(sec.$high + x$4.$high, sec.$low + x$4.$low));
 			/* } */ case 8:
 		/* } */ case 5:
 		return (x$5 = new $Int64(sec.$high + 2147483646, sec.$low + 450480384), new $Uint64(x$5.$high, x$5.$low));
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.abs }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.l = l; $f.offset = offset; $f.sec = sec; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.abs }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.l = l; $f.offset = offset; $f.sec = sec; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.abs = function() { return this.$val.abs(); };
 	Time.ptr.prototype.locabs = function() {
-		var $ptr, _r, _r$1, _tuple$1, abs, l, name, offset, sec, t, x, x$1, x$2, x$3, x$4, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; abs = $f.abs; l = $f.l; name = $f.name; offset = $f.offset; sec = $f.sec; t = $f.t; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _tuple$1, abs, l, name, offset, sec, t, x, x$1, x$2, x$3, x$4, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; abs = $f.abs; l = $f.l; name = $f.name; offset = $f.offset; sec = $f.sec; t = $f.t; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		name = "";
 		offset = 0;
 		abs = new $Uint64(0, 0);
@@ -5604,8 +4977,8 @@ $packages["time"] = (function() {
 		/* */ if (l === ptrType$1.nil || l === localLoc) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (l === ptrType$1.nil || l === localLoc) { */ case 1:
-			_r = l.get(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			l = _r;
+			_r$1 = l.get(); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			l = _r$1;
 		/* } */ case 2:
 		sec = (x = t.sec, new $Int64(x.$high + -15, x.$low + 2288912640));
 		/* */ if (!(l === utcLoc)) { $s = 4; continue; }
@@ -5618,8 +4991,8 @@ $packages["time"] = (function() {
 				offset = l.cacheZone.offset;
 				$s = 9; continue;
 			/* } else { */ case 8:
-				_r$1 = l.lookup(sec); /* */ $s = 10; case 10: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-				_tuple$1 = _r$1; name = _tuple$1[0]; offset = _tuple$1[1];
+				_r$2 = l.lookup(sec); /* */ $s = 10; case 10: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				_tuple$1 = _r$2; name = _tuple$1[0]; offset = _tuple$1[1];
 			/* } */ case 9:
 			sec = (x$3 = new $Int64(0, offset), new $Int64(sec.$high + x$3.$high, sec.$low + x$3.$low));
 			$s = 6; continue;
@@ -5628,60 +5001,60 @@ $packages["time"] = (function() {
 		/* } */ case 6:
 		abs = (x$4 = new $Int64(sec.$high + 2147483646, sec.$low + 450480384), new $Uint64(x$4.$high, x$4.$low));
 		return [name, offset, abs];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.locabs }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.abs = abs; $f.l = l; $f.name = name; $f.offset = offset; $f.sec = sec; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.locabs }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.abs = abs; $f.l = l; $f.name = name; $f.offset = offset; $f.sec = sec; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.locabs = function() { return this.$val.locabs(); };
 	Time.ptr.prototype.Date = function() {
-		var $ptr, _r, _tuple$1, day, month, t, year, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; day = $f.day; month = $f.month; t = $f.t; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, day, month, t, year, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; day = $f.day; month = $f.month; t = $f.t; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		year = 0;
 		month = 0;
 		day = 0;
 		t = $clone(this, Time);
-		_r = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2];
+		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2];
 		return [year, month, day];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Date }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.day = day; $f.month = month; $f.t = t; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Date }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.day = day; $f.month = month; $f.t = t; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Date = function() { return this.$val.Date(); };
 	Time.ptr.prototype.Year = function() {
-		var $ptr, _r, _tuple$1, t, year, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; t = $f.t; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, t, year, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; t = $f.t; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; year = _tuple$1[0];
+		_r$1 = t.date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; year = _tuple$1[0];
 		return year;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Year }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.t = t; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Year }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.t = t; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Year = function() { return this.$val.Year(); };
 	Time.ptr.prototype.Month = function() {
-		var $ptr, _r, _tuple$1, month, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; month = $f.month; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, month, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; month = $f.month; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; month = _tuple$1[1];
+		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; month = _tuple$1[1];
 		return month;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Month }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.month = month; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Month }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.month = month; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Month = function() { return this.$val.Month(); };
 	Time.ptr.prototype.Day = function() {
-		var $ptr, _r, _tuple$1, day, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; day = $f.day; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, day, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; day = $f.day; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; day = _tuple$1[2];
+		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; day = _tuple$1[2];
 		return day;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Day }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.day = day; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Day }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.day = day; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Day = function() { return this.$val.Day(); };
 	Time.ptr.prototype.Weekday = function() {
-		var $ptr, _r, _r$1, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_r$1 = absWeekday(_r); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		return _r$1;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Weekday }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$2 = absWeekday(_r$1); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		return _r$2;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Weekday }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Weekday = function() { return this.$val.Weekday(); };
 	absWeekday = function(abs) {
@@ -5690,17 +5063,17 @@ $packages["time"] = (function() {
 		return ((_q = (sec.$low >> 0) / 86400, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")) >> 0);
 	};
 	Time.ptr.prototype.ISOWeek = function() {
-		var $ptr, _q, _r, _r$1, _r$2, _r$3, _r$4, _tuple$1, day, dec31wday, jan1wday, month, t, wday, week, yday, year, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _tuple$1 = $f._tuple$1; day = $f.day; dec31wday = $f.dec31wday; jan1wday = $f.jan1wday; month = $f.month; t = $f.t; wday = $f.wday; week = $f.week; yday = $f.yday; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _q, _r$1, _r$2, _r$3, _r$4, _r$5, _tuple$1, day, dec31wday, jan1wday, month, t, wday, week, yday, year, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _tuple$1 = $f._tuple$1; day = $f.day; dec31wday = $f.dec31wday; jan1wday = $f.jan1wday; month = $f.month; t = $f.t; wday = $f.wday; week = $f.week; yday = $f.yday; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		year = 0;
 		week = 0;
 		t = $clone(this, Time);
-		_r = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2]; yday = _tuple$1[3];
-		_r$2 = t.Weekday(); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
-		wday = (_r$1 = ((_r$2 + 6 >> 0) >> 0) % 7, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero"));
+		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2]; yday = _tuple$1[3];
+		_r$3 = t.Weekday(); /* */ $s = 2; case 2: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+		wday = (_r$2 = ((_r$3 + 6 >> 0) >> 0) % 7, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero"));
 		week = (_q = (((yday - wday >> 0) + 7 >> 0)) / 7, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
-		jan1wday = (_r$3 = (((wday - yday >> 0) + 371 >> 0)) % 7, _r$3 === _r$3 ? _r$3 : $throwRuntimeError("integer divide by zero"));
+		jan1wday = (_r$4 = (((wday - yday >> 0) + 371 >> 0)) % 7, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
 		if (1 <= jan1wday && jan1wday <= 3) {
 			week = week + (1) >> 0;
 		}
@@ -5712,28 +5085,28 @@ $packages["time"] = (function() {
 			}
 		}
 		if ((month === 12) && day >= 29 && wday < 3) {
-			dec31wday = (_r$4 = (((wday + 31 >> 0) - day >> 0)) % 7, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
+			dec31wday = (_r$5 = (((wday + 31 >> 0) - day >> 0)) % 7, _r$5 === _r$5 ? _r$5 : $throwRuntimeError("integer divide by zero"));
 			if (0 <= dec31wday && dec31wday <= 2) {
 				year = year + (1) >> 0;
 				week = 1;
 			}
 		}
 		return [year, week];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.ISOWeek }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._tuple$1 = _tuple$1; $f.day = day; $f.dec31wday = dec31wday; $f.jan1wday = jan1wday; $f.month = month; $f.t = t; $f.wday = wday; $f.week = week; $f.yday = yday; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.ISOWeek }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._tuple$1 = _tuple$1; $f.day = day; $f.dec31wday = dec31wday; $f.jan1wday = jan1wday; $f.month = month; $f.t = t; $f.wday = wday; $f.week = week; $f.yday = yday; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.ISOWeek = function() { return this.$val.ISOWeek(); };
 	Time.ptr.prototype.Clock = function() {
-		var $ptr, _r, _r$1, _tuple$1, hour, min, sec, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; hour = $f.hour; min = $f.min; sec = $f.sec; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _tuple$1, hour, min, sec, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; hour = $f.hour; min = $f.min; sec = $f.sec; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		hour = 0;
 		min = 0;
 		sec = 0;
 		t = $clone(this, Time);
-		_r = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_r$1 = absClock(_r); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		_tuple$1 = _r$1; hour = _tuple$1[0]; min = _tuple$1[1]; sec = _tuple$1[2];
+		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$2 = absClock(_r$1); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_tuple$1 = _r$2; hour = _tuple$1[0]; min = _tuple$1[1]; sec = _tuple$1[2];
 		return [hour, min, sec];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Clock }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.hour = hour; $f.min = min; $f.sec = sec; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Clock }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.hour = hour; $f.min = min; $f.sec = sec; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Clock = function() { return this.$val.Clock(); };
 	absClock = function(abs) {
@@ -5749,30 +5122,30 @@ $packages["time"] = (function() {
 		return [hour, min, sec];
 	};
 	Time.ptr.prototype.Hour = function() {
-		var $ptr, _q, _r, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r = $f._r; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _q, _r$1, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return (_q = ($div64(_r, new $Uint64(0, 86400), true).$low >> 0) / 3600, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Hour }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return (_q = ($div64(_r$1, new $Uint64(0, 86400), true).$low >> 0) / 3600, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Hour }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Hour = function() { return this.$val.Hour(); };
 	Time.ptr.prototype.Minute = function() {
-		var $ptr, _q, _r, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r = $f._r; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _q, _r$1, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return (_q = ($div64(_r, new $Uint64(0, 3600), true).$low >> 0) / 60, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Minute }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return (_q = ($div64(_r$1, new $Uint64(0, 3600), true).$low >> 0) / 60, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Minute }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Minute = function() { return this.$val.Minute(); };
 	Time.ptr.prototype.Second = function() {
-		var $ptr, _r, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return ($div64(_r, new $Uint64(0, 60), true).$low >> 0);
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Second }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return ($div64(_r$1, new $Uint64(0, 60), true).$low >> 0);
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Second }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Second = function() { return this.$val.Second(); };
 	Time.ptr.prototype.Nanosecond = function() {
@@ -5782,19 +5155,19 @@ $packages["time"] = (function() {
 	};
 	Time.prototype.Nanosecond = function() { return this.$val.Nanosecond(); };
 	Time.ptr.prototype.YearDay = function() {
-		var $ptr, _r, _tuple$1, t, yday, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; t = $f.t; yday = $f.yday; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, t, yday, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; t = $f.t; yday = $f.yday; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; yday = _tuple$1[3];
+		_r$1 = t.date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; yday = _tuple$1[3];
 		return yday + 1 >> 0;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.YearDay }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.t = t; $f.yday = yday; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.YearDay }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.t = t; $f.yday = yday; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.YearDay = function() { return this.$val.YearDay(); };
 	Duration.prototype.String = function() {
 		var $ptr, _tuple$1, _tuple$2, buf, d, neg, prec, u, w;
 		d = this;
-		buf = $clone(arrayType$1.zero(), arrayType$1);
+		buf = $clone(arrayType.zero(), arrayType);
 		w = 32;
 		u = new $Uint64(d.$high, d.$low);
 		neg = (d.$high < 0 || (d.$high === 0 && d.$low < 0));
@@ -5948,31 +5321,31 @@ $packages["time"] = (function() {
 	};
 	Time.prototype.Sub = function(u) { return this.$val.Sub(u); };
 	Time.ptr.prototype.AddDate = function(years, months$1, days$1) {
-		var $ptr, _r, _r$1, _r$2, _tuple$1, _tuple$2, day, days$1, hour, min, month, months$1, sec, t, year, years, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; day = $f.day; days$1 = $f.days$1; hour = $f.hour; min = $f.min; month = $f.month; months$1 = $f.months$1; sec = $f.sec; t = $f.t; year = $f.year; years = $f.years; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _r$3, _tuple$1, _tuple$2, day, days$1, hour, min, month, months$1, sec, t, year, years, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; day = $f.day; days$1 = $f.days$1; hour = $f.hour; min = $f.min; month = $f.month; months$1 = $f.months$1; sec = $f.sec; t = $f.t; year = $f.year; years = $f.years; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.Date(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2];
-		_r$1 = t.Clock(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		_tuple$2 = _r$1; hour = _tuple$2[0]; min = _tuple$2[1]; sec = _tuple$2[2];
-		_r$2 = Date(year + years >> 0, month + (months$1 >> 0) >> 0, day + days$1 >> 0, hour, min, sec, (t.nsec >> 0), t.loc); /* */ $s = 3; case 3: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
-		return _r$2;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.AddDate }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f.day = day; $f.days$1 = days$1; $f.hour = hour; $f.min = min; $f.month = month; $f.months$1 = months$1; $f.sec = sec; $f.t = t; $f.year = year; $f.years = years; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.Date(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2];
+		_r$2 = t.Clock(); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_tuple$2 = _r$2; hour = _tuple$2[0]; min = _tuple$2[1]; sec = _tuple$2[2];
+		_r$3 = Date(year + years >> 0, month + (months$1 >> 0) >> 0, day + days$1 >> 0, hour, min, sec, (t.nsec >> 0), t.loc); /* */ $s = 3; case 3: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+		return _r$3;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.AddDate }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f.day = day; $f.days$1 = days$1; $f.hour = hour; $f.min = min; $f.month = month; $f.months$1 = months$1; $f.sec = sec; $f.t = t; $f.year = year; $f.years = years; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.AddDate = function(years, months$1, days$1) { return this.$val.AddDate(years, months$1, days$1); };
 	Time.ptr.prototype.date = function(full) {
-		var $ptr, _r, _r$1, _tuple$1, day, full, month, t, yday, year, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; day = $f.day; full = $f.full; month = $f.month; t = $f.t; yday = $f.yday; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _tuple$1, day, full, month, t, yday, year, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; day = $f.day; full = $f.full; month = $f.month; t = $f.t; yday = $f.yday; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		year = 0;
 		month = 0;
 		day = 0;
 		yday = 0;
 		t = $clone(this, Time);
-		_r = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_r$1 = absDate(_r, full); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		_tuple$1 = _r$1; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2]; yday = _tuple$1[3];
+		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$2 = absDate(_r$1, full); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_tuple$1 = _r$2; year = _tuple$1[0]; month = _tuple$1[1]; day = _tuple$1[2]; yday = _tuple$1[3];
 		return [year, month, day, yday];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.date }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.day = day; $f.full = full; $f.month = month; $f.t = t; $f.yday = yday; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.date }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.day = day; $f.full = full; $f.month = month; $f.t = t; $f.yday = yday; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.date = function(full) { return this.$val.date(full); };
 	absDate = function(abs, full) {
@@ -6059,15 +5432,15 @@ $packages["time"] = (function() {
 	};
 	Time.prototype.Location = function() { return this.$val.Location(); };
 	Time.ptr.prototype.Zone = function() {
-		var $ptr, _r, _tuple$1, name, offset, t, x, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; name = $f.name; offset = $f.offset; t = $f.t; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, name, offset, t, x, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; name = $f.name; offset = $f.offset; t = $f.t; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		name = "";
 		offset = 0;
 		t = $clone(this, Time);
-		_r = t.loc.lookup((x = t.sec, new $Int64(x.$high + -15, x.$low + 2288912640))); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; name = _tuple$1[0]; offset = _tuple$1[1];
+		_r$1 = t.loc.lookup((x = t.sec, new $Int64(x.$high + -15, x.$low + 2288912640))); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; name = _tuple$1[0]; offset = _tuple$1[1];
 		return [name, offset];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Zone }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.name = name; $f.offset = offset; $f.t = t; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Zone }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.name = name; $f.offset = offset; $f.t = t; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Zone = function() { return this.$val.Zone(); };
 	Time.ptr.prototype.Unix = function() {
@@ -6083,8 +5456,8 @@ $packages["time"] = (function() {
 	};
 	Time.prototype.UnixNano = function() { return this.$val.UnixNano(); };
 	Time.ptr.prototype.MarshalBinary = function() {
-		var $ptr, _q, _r, _r$1, _tuple$1, enc, offset, offsetMin, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r = $f._r; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; enc = $f.enc; offset = $f.offset; offsetMin = $f.offsetMin; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _q, _r$1, _r$2, _tuple$1, enc, offset, offsetMin, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; enc = $f.enc; offset = $f.offset; offsetMin = $f.offsetMin; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
 		offsetMin = 0;
 		/* */ if (t.Location() === utcLoc) { $s = 1; continue; }
@@ -6093,9 +5466,9 @@ $packages["time"] = (function() {
 			offsetMin = -1;
 			$s = 3; continue;
 		/* } else { */ case 2:
-			_r = t.Zone(); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			_tuple$1 = _r; offset = _tuple$1[1];
-			if (!(((_r$1 = offset % 60, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) === 0))) {
+			_r$1 = t.Zone(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			_tuple$1 = _r$1; offset = _tuple$1[1];
+			if (!(((_r$2 = offset % 60, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero")) === 0))) {
 				return [sliceType$3.nil, errors.New("Time.MarshalBinary: zone offset has fractional minute")];
 			}
 			offset = (_q = offset / (60), (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
@@ -6106,12 +5479,12 @@ $packages["time"] = (function() {
 		/* } */ case 3:
 		enc = new sliceType$3([1, ($shiftRightInt64(t.sec, 56).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 48).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 40).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 32).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 24).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 16).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 8).$low << 24 >>> 24), (t.sec.$low << 24 >>> 24), ((t.nsec >> 24 >> 0) << 24 >>> 24), ((t.nsec >> 16 >> 0) << 24 >>> 24), ((t.nsec >> 8 >> 0) << 24 >>> 24), (t.nsec << 24 >>> 24), ((offsetMin >> 8 << 16 >> 16) << 24 >>> 24), (offsetMin << 24 >>> 24)]);
 		return [enc, $ifaceNil];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalBinary }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.enc = enc; $f.offset = offset; $f.offsetMin = offsetMin; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalBinary }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.enc = enc; $f.offset = offset; $f.offsetMin = offsetMin; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.MarshalBinary = function() { return this.$val.MarshalBinary(); };
 	Time.ptr.prototype.UnmarshalBinary = function(data$1) {
-		var $ptr, _r, _tuple$1, buf, data$1, localoff, offset, t, x, x$1, x$10, x$11, x$12, x$13, x$14, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; buf = $f.buf; data$1 = $f.data$1; localoff = $f.localoff; offset = $f.offset; t = $f.t; x = $f.x; x$1 = $f.x$1; x$10 = $f.x$10; x$11 = $f.x$11; x$12 = $f.x$12; x$13 = $f.x$13; x$14 = $f.x$14; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; x$9 = $f.x$9; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, buf, data$1, localoff, offset, t, x, x$1, x$10, x$11, x$12, x$13, x$14, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; buf = $f.buf; data$1 = $f.data$1; localoff = $f.localoff; offset = $f.offset; t = $f.t; x = $f.x; x$1 = $f.x$1; x$10 = $f.x$10; x$11 = $f.x$11; x$12 = $f.x$12; x$13 = $f.x$13; x$14 = $f.x$14; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; x$9 = $f.x$9; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = this;
 		buf = data$1;
 		if (buf.$length === 0) {
@@ -6135,8 +5508,8 @@ $packages["time"] = (function() {
 			t.loc = utcLoc;
 			$s = 3; continue;
 		/* } else { */ case 2:
-			_r = $pkg.Local.lookup((x$14 = t.sec, new $Int64(x$14.$high + -15, x$14.$low + 2288912640))); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			_tuple$1 = _r; localoff = _tuple$1[1];
+			_r$1 = $pkg.Local.lookup((x$14 = t.sec, new $Int64(x$14.$high + -15, x$14.$low + 2288912640))); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			_tuple$1 = _r$1; localoff = _tuple$1[1];
 			/* */ if (offset === localoff) { $s = 5; continue; }
 			/* */ $s = 6; continue;
 			/* if (offset === localoff) { */ case 5:
@@ -6147,79 +5520,79 @@ $packages["time"] = (function() {
 			/* } */ case 7:
 		/* } */ case 3:
 		return $ifaceNil;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalBinary }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.buf = buf; $f.data$1 = data$1; $f.localoff = localoff; $f.offset = offset; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$13 = x$13; $f.x$14 = x$14; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalBinary }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.buf = buf; $f.data$1 = data$1; $f.localoff = localoff; $f.offset = offset; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$13 = x$13; $f.x$14 = x$14; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.UnmarshalBinary = function(data$1) { return this.$val.UnmarshalBinary(data$1); };
 	Time.ptr.prototype.GobEncode = function() {
-		var $ptr, _r, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.MarshalBinary(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return _r;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.GobEncode }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.MarshalBinary(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return _r$1;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.GobEncode }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.GobEncode = function() { return this.$val.GobEncode(); };
 	Time.ptr.prototype.GobDecode = function(data$1) {
-		var $ptr, _r, data$1, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; data$1 = $f.data$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, data$1, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; data$1 = $f.data$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = this;
-		_r = t.UnmarshalBinary(data$1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return _r;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.GobDecode }; } $f.$ptr = $ptr; $f._r = _r; $f.data$1 = data$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = t.UnmarshalBinary(data$1); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return _r$1;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.GobDecode }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.data$1 = data$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.GobDecode = function(data$1) { return this.$val.GobDecode(data$1); };
 	Time.ptr.prototype.MarshalJSON = function() {
-		var $ptr, _r, _r$1, t, y, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; t = $f.t; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, t, y, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; t = $f.t; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		y = _r;
+		_r$1 = t.Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		y = _r$1;
 		/* */ if (y < 0 || y >= 10000) { $s = 2; continue; }
 		/* */ $s = 3; continue;
 		/* if (y < 0 || y >= 10000) { */ case 2:
 			return [sliceType$3.nil, errors.New("Time.MarshalJSON: year outside of range [0,9999]")];
 		/* } */ case 3:
-		_r$1 = t.Format("\"2006-01-02T15:04:05.999999999Z07:00\""); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		return [new sliceType$3($stringToBytes(_r$1)), $ifaceNil];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalJSON }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.t = t; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
+		_r$2 = t.Format("\"2006-01-02T15:04:05.999999999Z07:00\""); /* */ $s = 4; case 4: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		return [new sliceType$3($stringToBytes(_r$2)), $ifaceNil];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalJSON }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.t = t; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.MarshalJSON = function() { return this.$val.MarshalJSON(); };
 	Time.ptr.prototype.UnmarshalJSON = function(data$1) {
-		var $ptr, _r, _tuple$1, data$1, err, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; data$1 = $f.data$1; err = $f.err; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, data$1, err, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; data$1 = $f.data$1; err = $f.err; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		err = $ifaceNil;
 		t = this;
-		_r = Parse("\"2006-01-02T15:04:05Z07:00\"", $bytesToString(data$1)); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; $copy(t, _tuple$1[0], Time); err = _tuple$1[1];
+		_r$1 = Parse("\"2006-01-02T15:04:05Z07:00\"", $bytesToString(data$1)); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; $copy(t, _tuple$1[0], Time); err = _tuple$1[1];
 		return err;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalJSON }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.data$1 = data$1; $f.err = err; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalJSON }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.data$1 = data$1; $f.err = err; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.UnmarshalJSON = function(data$1) { return this.$val.UnmarshalJSON(data$1); };
 	Time.ptr.prototype.MarshalText = function() {
-		var $ptr, _r, _r$1, t, y, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; t = $f.t; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, t, y, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; t = $f.t; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = $clone(this, Time);
-		_r = t.Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		y = _r;
+		_r$1 = t.Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		y = _r$1;
 		/* */ if (y < 0 || y >= 10000) { $s = 2; continue; }
 		/* */ $s = 3; continue;
 		/* if (y < 0 || y >= 10000) { */ case 2:
 			return [sliceType$3.nil, errors.New("Time.MarshalText: year outside of range [0,9999]")];
 		/* } */ case 3:
-		_r$1 = t.Format("2006-01-02T15:04:05.999999999Z07:00"); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		return [new sliceType$3($stringToBytes(_r$1)), $ifaceNil];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalText }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.t = t; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
+		_r$2 = t.Format("2006-01-02T15:04:05.999999999Z07:00"); /* */ $s = 4; case 4: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		return [new sliceType$3($stringToBytes(_r$2)), $ifaceNil];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalText }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.t = t; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.MarshalText = function() { return this.$val.MarshalText(); };
 	Time.ptr.prototype.UnmarshalText = function(data$1) {
-		var $ptr, _r, _tuple$1, data$1, err, t, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple$1 = $f._tuple$1; data$1 = $f.data$1; err = $f.err; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _tuple$1, data$1, err, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; data$1 = $f.data$1; err = $f.err; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		err = $ifaceNil;
 		t = this;
-		_r = Parse("2006-01-02T15:04:05Z07:00", $bytesToString(data$1)); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$1 = _r; $copy(t, _tuple$1[0], Time); err = _tuple$1[1];
+		_r$1 = Parse("2006-01-02T15:04:05Z07:00", $bytesToString(data$1)); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$1 = _r$1; $copy(t, _tuple$1[0], Time); err = _tuple$1[1];
 		return err;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalText }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple$1 = _tuple$1; $f.data$1 = data$1; $f.err = err; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalText }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.data$1 = data$1; $f.err = err; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.UnmarshalText = function(data$1) { return this.$val.UnmarshalText(data$1); };
 	Unix = function(sec, nsec) {
@@ -6237,8 +5610,8 @@ $packages["time"] = (function() {
 	};
 	$pkg.Unix = Unix;
 	isLeap = function(year) {
-		var $ptr, _r, _r$1, _r$2, year;
-		return ((_r = year % 4, _r === _r ? _r : $throwRuntimeError("integer divide by zero")) === 0) && (!(((_r$1 = year % 100, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) === 0)) || ((_r$2 = year % 400, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero")) === 0));
+		var $ptr, _r$1, _r$2, _r$3, year;
+		return ((_r$1 = year % 4, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) === 0) && (!(((_r$2 = year % 100, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero")) === 0)) || ((_r$3 = year % 400, _r$3 === _r$3 ? _r$3 : $throwRuntimeError("integer divide by zero")) === 0));
 	};
 	norm = function(hi, lo, base) {
 		var $ptr, _q, _q$1, _tmp, _tmp$1, base, hi, lo, n, n$1, nhi, nlo;
@@ -6258,8 +5631,8 @@ $packages["time"] = (function() {
 		return [nhi, nlo];
 	};
 	Date = function(year, month, day, hour, min, sec, nsec, loc) {
-		var $ptr, _r, _r$1, _r$2, _tuple$1, _tuple$2, _tuple$3, _tuple$4, _tuple$5, _tuple$6, _tuple$7, _tuple$8, abs, d, day, end, hour, loc, m, min, month, n, nsec, offset, sec, start, unix, utc, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9, y, year, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; _tuple$5 = $f._tuple$5; _tuple$6 = $f._tuple$6; _tuple$7 = $f._tuple$7; _tuple$8 = $f._tuple$8; abs = $f.abs; d = $f.d; day = $f.day; end = $f.end; hour = $f.hour; loc = $f.loc; m = $f.m; min = $f.min; month = $f.month; n = $f.n; nsec = $f.nsec; offset = $f.offset; sec = $f.sec; start = $f.start; unix = $f.unix; utc = $f.utc; x = $f.x; x$1 = $f.x$1; x$10 = $f.x$10; x$11 = $f.x$11; x$12 = $f.x$12; x$13 = $f.x$13; x$14 = $f.x$14; x$15 = $f.x$15; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; x$9 = $f.x$9; y = $f.y; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _r$3, _tuple$1, _tuple$2, _tuple$3, _tuple$4, _tuple$5, _tuple$6, _tuple$7, _tuple$8, abs, d, day, end, hour, loc, m, min, month, n, nsec, offset, sec, start, unix, utc, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9, y, year, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; _tuple$5 = $f._tuple$5; _tuple$6 = $f._tuple$6; _tuple$7 = $f._tuple$7; _tuple$8 = $f._tuple$8; abs = $f.abs; d = $f.d; day = $f.day; end = $f.end; hour = $f.hour; loc = $f.loc; m = $f.m; min = $f.min; month = $f.month; n = $f.n; nsec = $f.nsec; offset = $f.offset; sec = $f.sec; start = $f.start; unix = $f.unix; utc = $f.utc; x = $f.x; x$1 = $f.x$1; x$10 = $f.x$10; x$11 = $f.x$11; x$12 = $f.x$12; x$13 = $f.x$13; x$14 = $f.x$14; x$15 = $f.x$15; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; x$9 = $f.x$9; y = $f.y; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		if (loc === ptrType$1.nil) {
 			$panic(new $String("time: missing Location in call to Date"));
 		}
@@ -6290,8 +5663,8 @@ $packages["time"] = (function() {
 		abs = $mul64(d, new $Uint64(0, 86400));
 		abs = (x$12 = new $Uint64(0, (((hour * 3600 >> 0) + (min * 60 >> 0) >> 0) + sec >> 0)), new $Uint64(abs.$high + x$12.$high, abs.$low + x$12.$low));
 		unix = (x$13 = new $Int64(abs.$high, abs.$low), new $Int64(x$13.$high + -2147483647, x$13.$low + 3844486912));
-		_r = loc.lookup(unix); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple$6 = _r; offset = _tuple$6[1]; start = _tuple$6[3]; end = _tuple$6[4];
+		_r$1 = loc.lookup(unix); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$6 = _r$1; offset = _tuple$6[1]; start = _tuple$6[3]; end = _tuple$6[4];
 		/* */ if (!((offset === 0))) { $s = 2; continue; }
 		/* */ $s = 3; continue;
 		/* if (!((offset === 0))) { */ case 2:
@@ -6300,17 +5673,17 @@ $packages["time"] = (function() {
 			/* */ if ((utc.$high > end.$high || (utc.$high === end.$high && utc.$low >= end.$low))) { $s = 5; continue; }
 			/* */ $s = 6; continue;
 			/* if ((utc.$high < start.$high || (utc.$high === start.$high && utc.$low < start.$low))) { */ case 4:
-				_r$1 = loc.lookup(new $Int64(start.$high - 0, start.$low - 1)); /* */ $s = 7; case 7: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-				_tuple$7 = _r$1; offset = _tuple$7[1];
+				_r$2 = loc.lookup(new $Int64(start.$high - 0, start.$low - 1)); /* */ $s = 7; case 7: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				_tuple$7 = _r$2; offset = _tuple$7[1];
 				$s = 6; continue;
 			/* } else if ((utc.$high > end.$high || (utc.$high === end.$high && utc.$low >= end.$low))) { */ case 5:
-				_r$2 = loc.lookup(end); /* */ $s = 8; case 8: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
-				_tuple$8 = _r$2; offset = _tuple$8[1];
+				_r$3 = loc.lookup(end); /* */ $s = 8; case 8: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+				_tuple$8 = _r$3; offset = _tuple$8[1];
 			/* } */ case 6:
 			unix = (x$15 = new $Int64(0, offset), new $Int64(unix.$high - x$15.$high, unix.$low - x$15.$low));
 		/* } */ case 3:
 		return new Time.ptr(new $Int64(unix.$high + 14, unix.$low + 2006054656), (nsec >> 0), loc);
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Date }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f._tuple$5 = _tuple$5; $f._tuple$6 = _tuple$6; $f._tuple$7 = _tuple$7; $f._tuple$8 = _tuple$8; $f.abs = abs; $f.d = d; $f.day = day; $f.end = end; $f.hour = hour; $f.loc = loc; $f.m = m; $f.min = min; $f.month = month; $f.n = n; $f.nsec = nsec; $f.offset = offset; $f.sec = sec; $f.start = start; $f.unix = unix; $f.utc = utc; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$13 = x$13; $f.x$14 = x$14; $f.x$15 = x$15; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.y = y; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Date }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f._tuple$5 = _tuple$5; $f._tuple$6 = _tuple$6; $f._tuple$7 = _tuple$7; $f._tuple$8 = _tuple$8; $f.abs = abs; $f.d = d; $f.day = day; $f.end = end; $f.hour = hour; $f.loc = loc; $f.m = m; $f.min = min; $f.month = month; $f.n = n; $f.nsec = nsec; $f.offset = offset; $f.sec = sec; $f.start = start; $f.unix = unix; $f.utc = utc; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$13 = x$13; $f.x$14 = x$14; $f.x$15 = x$15; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.y = y; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Date = Date;
 	Time.ptr.prototype.Truncate = function(d) {
@@ -6337,7 +5710,7 @@ $packages["time"] = (function() {
 	};
 	Time.prototype.Round = function(d) { return this.$val.Round(d); };
 	div = function(t, d) {
-		var $ptr, _q, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, d, d0, d1, d1$1, neg, nsec, qmod2, r, sec, t, tmp, u0, u0x, u1, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$16, x$17, x$18, x$19, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9;
+		var $ptr, _q, _r$1, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, d, d0, d1, d1$1, neg, nsec, qmod2, r, sec, t, tmp, u0, u0x, u1, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$16, x$17, x$18, x$19, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9;
 		qmod2 = 0;
 		r = new Duration(0, 0);
 		t = $clone(t, Time);
@@ -6354,7 +5727,7 @@ $packages["time"] = (function() {
 		}
 		if ((d.$high < 0 || (d.$high === 0 && d.$low < 1000000000)) && (x$4 = $div64(new Duration(0, 1000000000), (new Duration(d.$high + d.$high, d.$low + d.$low)), true), (x$4.$high === 0 && x$4.$low === 0))) {
 			qmod2 = ((_q = nsec / ((d.$low + ((d.$high >> 31) * 4294967296)) >> 0), (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")) >> 0) & 1;
-			r = new Duration(0, (_r = nsec % ((d.$low + ((d.$high >> 31) * 4294967296)) >> 0), _r === _r ? _r : $throwRuntimeError("integer divide by zero")));
+			r = new Duration(0, (_r$1 = nsec % ((d.$low + ((d.$high >> 31) * 4294967296)) >> 0), _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")));
 		} else if ((x$5 = $div64(d, new Duration(0, 1000000000), true), (x$5.$high === 0 && x$5.$low === 0))) {
 			d1 = (x$6 = $div64(d, new Duration(0, 1000000000), false), new $Int64(x$6.$high, x$6.$low));
 			qmod2 = ((x$7 = $div64(t.sec, d1, false), x$7.$low + ((x$7.$high >> 31) * 4294967296)) >> 0) & 1;
@@ -6421,12 +5794,12 @@ $packages["time"] = (function() {
 	};
 	Location.prototype.get = function() { return this.$val.get(); };
 	Location.ptr.prototype.String = function() {
-		var $ptr, _r, l, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; l = $f.l; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, l, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; l = $f.l; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		l = this;
-		_r = l.get(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		return _r.name;
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.String }; } $f.$ptr = $ptr; $f._r = _r; $f.l = l; $f.$s = $s; $f.$r = $r; return $f;
+		_r$1 = l.get(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return _r$1.name;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.String }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.l = l; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Location.prototype.String = function() { return this.$val.String(); };
 	FixedZone = function(name, offset) {
@@ -6437,16 +5810,16 @@ $packages["time"] = (function() {
 	};
 	$pkg.FixedZone = FixedZone;
 	Location.ptr.prototype.lookup = function(sec) {
-		var $ptr, _q, _r, end, hi, isDST, l, lim, lo, m, name, offset, sec, start, tx, x, x$1, x$2, x$3, x$4, x$5, x$6, x$7, x$8, zone$1, zone$2, zone$3, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r = $f._r; end = $f.end; hi = $f.hi; isDST = $f.isDST; l = $f.l; lim = $f.lim; lo = $f.lo; m = $f.m; name = $f.name; offset = $f.offset; sec = $f.sec; start = $f.start; tx = $f.tx; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; zone$1 = $f.zone$1; zone$2 = $f.zone$2; zone$3 = $f.zone$3; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _q, _r$1, end, hi, isDST, l, lim, lo, m, name, offset, sec, start, tx, x, x$1, x$2, x$3, x$4, x$5, x$6, x$7, x$8, zone$1, zone$2, zone$3, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; end = $f.end; hi = $f.hi; isDST = $f.isDST; l = $f.l; lim = $f.lim; lo = $f.lo; m = $f.m; name = $f.name; offset = $f.offset; sec = $f.sec; start = $f.start; tx = $f.tx; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; zone$1 = $f.zone$1; zone$2 = $f.zone$2; zone$3 = $f.zone$3; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		name = "";
 		offset = 0;
 		isDST = false;
 		start = new $Int64(0, 0);
 		end = new $Int64(0, 0);
 		l = this;
-		_r = l.get(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		l = _r;
+		_r$1 = l.get(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		l = _r$1;
 		if (l.zone.$length === 0) {
 			name = "UTC";
 			offset = 0;
@@ -6498,7 +5871,7 @@ $packages["time"] = (function() {
 		isDST = zone$3.isDST;
 		start = ((lo < 0 || lo >= tx.$length) ? $throwRuntimeError("index out of range") : tx.$array[tx.$offset + lo]).when;
 		return [name, offset, isDST, start, end];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.lookup }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f.end = end; $f.hi = hi; $f.isDST = isDST; $f.l = l; $f.lim = lim; $f.lo = lo; $f.m = m; $f.name = name; $f.offset = offset; $f.sec = sec; $f.start = start; $f.tx = tx; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.zone$3 = zone$3; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.lookup }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f.end = end; $f.hi = hi; $f.isDST = isDST; $f.l = l; $f.lim = lim; $f.lo = lo; $f.m = m; $f.name = name; $f.offset = offset; $f.sec = sec; $f.start = start; $f.tx = tx; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.zone$3 = zone$3; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Location.prototype.lookup = function(sec) { return this.$val.lookup(sec); };
 	Location.ptr.prototype.lookupFirstZone = function() {
@@ -6547,14 +5920,14 @@ $packages["time"] = (function() {
 	};
 	Location.prototype.firstZoneUsed = function() { return this.$val.firstZoneUsed(); };
 	Location.ptr.prototype.lookupName = function(name, unix) {
-		var $ptr, _i, _i$1, _r, _r$1, _ref, _ref$1, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple$1, i, i$1, isDST, isDST$1, l, nam, name, offset, offset$1, ok, unix, x, x$1, x$2, zone$1, zone$2, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _i$1 = $f._i$1; _r = $f._r; _r$1 = $f._r$1; _ref = $f._ref; _ref$1 = $f._ref$1; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tuple$1 = $f._tuple$1; i = $f.i; i$1 = $f.i$1; isDST = $f.isDST; isDST$1 = $f.isDST$1; l = $f.l; nam = $f.nam; name = $f.name; offset = $f.offset; offset$1 = $f.offset$1; ok = $f.ok; unix = $f.unix; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; zone$1 = $f.zone$1; zone$2 = $f.zone$2; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _i, _i$1, _r$1, _r$2, _ref, _ref$1, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple$1, i, i$1, isDST, isDST$1, l, nam, name, offset, offset$1, ok, unix, x, x$1, x$2, zone$1, zone$2, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _i$1 = $f._i$1; _r$1 = $f._r$1; _r$2 = $f._r$2; _ref = $f._ref; _ref$1 = $f._ref$1; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tuple$1 = $f._tuple$1; i = $f.i; i$1 = $f.i$1; isDST = $f.isDST; isDST$1 = $f.isDST$1; l = $f.l; nam = $f.nam; name = $f.name; offset = $f.offset; offset$1 = $f.offset$1; ok = $f.ok; unix = $f.unix; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; zone$1 = $f.zone$1; zone$2 = $f.zone$2; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		offset = 0;
 		isDST = false;
 		ok = false;
 		l = this;
-		_r = l.get(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		l = _r;
+		_r$1 = l.get(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		l = _r$1;
 		_ref = l.zone;
 		_i = 0;
 		/* while (true) { */ case 2:
@@ -6564,8 +5937,8 @@ $packages["time"] = (function() {
 			/* */ if (zone$1.name === name) { $s = 4; continue; }
 			/* */ $s = 5; continue;
 			/* if (zone$1.name === name) { */ case 4:
-				_r$1 = l.lookup((x$1 = new $Int64(0, zone$1.offset), new $Int64(unix.$high - x$1.$high, unix.$low - x$1.$low))); /* */ $s = 6; case 6: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-				_tuple$1 = _r$1; nam = _tuple$1[0]; offset$1 = _tuple$1[1]; isDST$1 = _tuple$1[2];
+				_r$2 = l.lookup((x$1 = new $Int64(0, zone$1.offset), new $Int64(unix.$high - x$1.$high, unix.$low - x$1.$low))); /* */ $s = 6; case 6: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				_tuple$1 = _r$2; nam = _tuple$1[0]; offset$1 = _tuple$1[1]; isDST$1 = _tuple$1[2];
 				if (nam === zone$1.name) {
 					_tmp = offset$1; _tmp$1 = isDST$1; _tmp$2 = true; offset = _tmp; isDST = _tmp$1; ok = _tmp$2;
 					return [offset, isDST, ok];
@@ -6586,12 +5959,12 @@ $packages["time"] = (function() {
 			_i$1++;
 		}
 		return [offset, isDST, ok];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.lookupName }; } $f.$ptr = $ptr; $f._i = _i; $f._i$1 = _i$1; $f._r = _r; $f._r$1 = _r$1; $f._ref = _ref; $f._ref$1 = _ref$1; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple$1 = _tuple$1; $f.i = i; $f.i$1 = i$1; $f.isDST = isDST; $f.isDST$1 = isDST$1; $f.l = l; $f.nam = nam; $f.name = name; $f.offset = offset; $f.offset$1 = offset$1; $f.ok = ok; $f.unix = unix; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.lookupName }; } $f.$ptr = $ptr; $f._i = _i; $f._i$1 = _i$1; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._ref = _ref; $f._ref$1 = _ref$1; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple$1 = _tuple$1; $f.i = i; $f.i$1 = i$1; $f.isDST = isDST; $f.isDST$1 = isDST$1; $f.l = l; $f.nam = nam; $f.name = name; $f.offset = offset; $f.offset$1 = offset$1; $f.ok = ok; $f.unix = unix; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Location.prototype.lookupName = function(name, unix) { return this.$val.lookupName(name, unix); };
-	ptrType$7.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
+	ptrType$3.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
 	Time.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Format", name: "Format", pkg: "", typ: $funcType([$String], [$String], false)}, {prop: "After", name: "After", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "Before", name: "Before", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "Equal", name: "Equal", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "IsZero", name: "IsZero", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "abs", name: "abs", pkg: "time", typ: $funcType([], [$Uint64], false)}, {prop: "locabs", name: "locabs", pkg: "time", typ: $funcType([], [$String, $Int, $Uint64], false)}, {prop: "Date", name: "Date", pkg: "", typ: $funcType([], [$Int, Month, $Int], false)}, {prop: "Year", name: "Year", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Month", name: "Month", pkg: "", typ: $funcType([], [Month], false)}, {prop: "Day", name: "Day", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Weekday", name: "Weekday", pkg: "", typ: $funcType([], [Weekday], false)}, {prop: "ISOWeek", name: "ISOWeek", pkg: "", typ: $funcType([], [$Int, $Int], false)}, {prop: "Clock", name: "Clock", pkg: "", typ: $funcType([], [$Int, $Int, $Int], false)}, {prop: "Hour", name: "Hour", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Minute", name: "Minute", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Second", name: "Second", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Nanosecond", name: "Nanosecond", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "YearDay", name: "YearDay", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Add", name: "Add", pkg: "", typ: $funcType([Duration], [Time], false)}, {prop: "Sub", name: "Sub", pkg: "", typ: $funcType([Time], [Duration], false)}, {prop: "AddDate", name: "AddDate", pkg: "", typ: $funcType([$Int, $Int, $Int], [Time], false)}, {prop: "date", name: "date", pkg: "time", typ: $funcType([$Bool], [$Int, Month, $Int, $Int], false)}, {prop: "UTC", name: "UTC", pkg: "", typ: $funcType([], [Time], false)}, {prop: "Local", name: "Local", pkg: "", typ: $funcType([], [Time], false)}, {prop: "In", name: "In", pkg: "", typ: $funcType([ptrType$1], [Time], false)}, {prop: "Location", name: "Location", pkg: "", typ: $funcType([], [ptrType$1], false)}, {prop: "Zone", name: "Zone", pkg: "", typ: $funcType([], [$String, $Int], false)}, {prop: "Unix", name: "Unix", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "UnixNano", name: "UnixNano", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "MarshalBinary", name: "MarshalBinary", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "GobEncode", name: "GobEncode", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "MarshalJSON", name: "MarshalJSON", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "MarshalText", name: "MarshalText", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "Truncate", name: "Truncate", pkg: "", typ: $funcType([Duration], [Time], false)}, {prop: "Round", name: "Round", pkg: "", typ: $funcType([Duration], [Time], false)}];
-	ptrType$10.methods = [{prop: "UnmarshalBinary", name: "UnmarshalBinary", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "GobDecode", name: "GobDecode", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalJSON", name: "UnmarshalJSON", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalText", name: "UnmarshalText", pkg: "", typ: $funcType([sliceType$3], [$error], false)}];
+	ptrType$6.methods = [{prop: "UnmarshalBinary", name: "UnmarshalBinary", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "GobDecode", name: "GobDecode", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalJSON", name: "UnmarshalJSON", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalText", name: "UnmarshalText", pkg: "", typ: $funcType([sliceType$3], [$error], false)}];
 	Month.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}];
 	Weekday.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}];
 	Duration.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Nanoseconds", name: "Nanoseconds", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Seconds", name: "Seconds", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Minutes", name: "Minutes", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Hours", name: "Hours", pkg: "", typ: $funcType([], [$Float64], false)}];
@@ -6626,15 +5999,17 @@ $packages["time"] = (function() {
 		utcLoc = new Location.ptr("UTC", sliceType$1.nil, sliceType$2.nil, new $Int64(0, 0), new $Int64(0, 0), ptrType.nil);
 		$pkg.UTC = utcLoc;
 		$pkg.Local = localLoc;
-		_tuple = syscall.Getenv("ZONEINFO"); zoneinfo = _tuple[0];
+		_r = syscall.Getenv("ZONEINFO"); /* */ $s = 7; case 7: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_tuple = _r; zoneinfo = _tuple[0];
 		badData = errors.New("malformed time zone information");
+		zoneDirs = new sliceType(["/usr/share/zoneinfo/", "/usr/share/lib/zoneinfo/", "/usr/lib/locale/TZ/", runtime.GOROOT() + "/lib/time/zoneinfo.zip"]);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
 	return $pkg;
 })();
 $packages["os"] = (function() {
-	var $pkg = {}, $init, errors, js, io, runtime, sync, atomic, syscall, time, utf16, utf8, PathError, SyscallError, File, file, dirInfo, FileInfo, FileMode, fileStat, sliceType, sliceType$1, ptrType$1, sliceType$2, ptrType$2, ptrType$4, arrayType, ptrType$8, arrayType$1, ptrType$9, sliceType$4, sliceType$5, ptrType$10, sliceType$7, ptrType$11, funcType$1, ptrType$12, ptrType$13, ptrType$14, ptrType$17, devNullStat, devNullStat_ptr, runtime_args, init, NewSyscallError, init$1, fixCount, Readlink, syscallMode, newFile, NewFile, epipecheck, IsPathSeparator, init$2, Stat, Lstat, basename, isAbs, volumeName;
+	var $pkg = {}, $init, errors, js, io, runtime, sync, atomic, syscall, time, PathError, SyscallError, LinkError, File, file, dirInfo, FileInfo, FileMode, fileStat, sliceType, ptrType, sliceType$1, sliceType$2, ptrType$2, ptrType$3, ptrType$4, arrayType, ptrType$11, funcType$1, ptrType$12, ptrType$14, ptrType$15, errFinished, lstat, runtime_args, init, NewSyscallError, IsNotExist, isNotExist, fixCount, sigpipe, syscallMode, NewFile, epipecheck, Lstat, basename, init$1, fileInfoFromStat, timespecToTime;
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	io = $packages["io"];
@@ -6643,8 +6018,6 @@ $packages["os"] = (function() {
 	atomic = $packages["sync/atomic"];
 	syscall = $packages["syscall"];
 	time = $packages["time"];
-	utf16 = $packages["unicode/utf16"];
-	utf8 = $packages["unicode/utf8"];
 	PathError = $pkg.PathError = $newType(0, $kindStruct, "os.PathError", "PathError", "os", function(Op_, Path_, Err_) {
 		this.$val = this;
 		if (arguments.length === 0) {
@@ -6667,6 +6040,20 @@ $packages["os"] = (function() {
 		this.Syscall = Syscall_;
 		this.Err = Err_;
 	});
+	LinkError = $pkg.LinkError = $newType(0, $kindStruct, "os.LinkError", "LinkError", "os", function(Op_, Old_, New_, Err_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.Op = "";
+			this.Old = "";
+			this.New = "";
+			this.Err = $ifaceNil;
+			return;
+		}
+		this.Op = Op_;
+		this.Old = Old_;
+		this.New = New_;
+		this.Err = Err_;
+	});
 	File = $pkg.File = $newType(0, $kindStruct, "os.File", "File", "os", function(file_) {
 		this.$val = this;
 		if (arguments.length === 0) {
@@ -6675,82 +6062,63 @@ $packages["os"] = (function() {
 		}
 		this.file = file_;
 	});
-	file = $pkg.file = $newType(0, $kindStruct, "os.file", "file", "os", function(fd_, name_, dirinfo_, l_, isConsole_, lastbits_, readbuf_) {
+	file = $pkg.file = $newType(0, $kindStruct, "os.file", "file", "os", function(fd_, name_, dirinfo_, nepipe_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.fd = 0;
 			this.name = "";
-			this.dirinfo = ptrType$10.nil;
-			this.l = new sync.Mutex.ptr();
-			this.isConsole = false;
-			this.lastbits = sliceType$2.nil;
-			this.readbuf = sliceType$7.nil;
+			this.dirinfo = ptrType.nil;
+			this.nepipe = 0;
 			return;
 		}
 		this.fd = fd_;
 		this.name = name_;
 		this.dirinfo = dirinfo_;
-		this.l = l_;
-		this.isConsole = isConsole_;
-		this.lastbits = lastbits_;
-		this.readbuf = readbuf_;
+		this.nepipe = nepipe_;
 	});
-	dirInfo = $pkg.dirInfo = $newType(0, $kindStruct, "os.dirInfo", "dirInfo", "os", function(data_, needdata_, path_, isempty_) {
+	dirInfo = $pkg.dirInfo = $newType(0, $kindStruct, "os.dirInfo", "dirInfo", "os", function(buf_, nbuf_, bufp_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.data = new syscall.Win32finddata.ptr();
-			this.needdata = false;
-			this.path = "";
-			this.isempty = false;
+			this.buf = sliceType$1.nil;
+			this.nbuf = 0;
+			this.bufp = 0;
 			return;
 		}
-		this.data = data_;
-		this.needdata = needdata_;
-		this.path = path_;
-		this.isempty = isempty_;
+		this.buf = buf_;
+		this.nbuf = nbuf_;
+		this.bufp = bufp_;
 	});
 	FileInfo = $pkg.FileInfo = $newType(8, $kindInterface, "os.FileInfo", "FileInfo", "os", null);
 	FileMode = $pkg.FileMode = $newType(4, $kindUint32, "os.FileMode", "FileMode", "os", null);
-	fileStat = $pkg.fileStat = $newType(0, $kindStruct, "os.fileStat", "fileStat", "os", function(name_, sys_, Mutex_, path_, vol_, idxhi_, idxlo_) {
+	fileStat = $pkg.fileStat = $newType(0, $kindStruct, "os.fileStat", "fileStat", "os", function(name_, size_, mode_, modTime_, sys_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.name = "";
-			this.sys = new syscall.Win32FileAttributeData.ptr();
-			this.Mutex = new sync.Mutex.ptr();
-			this.path = "";
-			this.vol = 0;
-			this.idxhi = 0;
-			this.idxlo = 0;
+			this.size = new $Int64(0, 0);
+			this.mode = 0;
+			this.modTime = new time.Time.ptr();
+			this.sys = $ifaceNil;
 			return;
 		}
 		this.name = name_;
+		this.size = size_;
+		this.mode = mode_;
+		this.modTime = modTime_;
 		this.sys = sys_;
-		this.Mutex = Mutex_;
-		this.path = path_;
-		this.vol = vol_;
-		this.idxhi = idxhi_;
-		this.idxlo = idxlo_;
 	});
 	sliceType = $sliceType($String);
-	sliceType$1 = $sliceType(FileInfo);
-	ptrType$1 = $ptrType(File);
-	sliceType$2 = $sliceType($Uint8);
-	ptrType$2 = $ptrType(PathError);
-	ptrType$4 = $ptrType($Uint32);
+	ptrType = $ptrType(dirInfo);
+	sliceType$1 = $sliceType($Uint8);
+	sliceType$2 = $sliceType(FileInfo);
+	ptrType$2 = $ptrType(File);
+	ptrType$3 = $ptrType(PathError);
+	ptrType$4 = $ptrType(LinkError);
 	arrayType = $arrayType($Uint8, 32);
-	ptrType$8 = $ptrType($Int32);
-	arrayType$1 = $arrayType($Uint16, 8192);
-	ptrType$9 = $ptrType(arrayType$1);
-	sliceType$4 = $sliceType(ptrType$9);
-	sliceType$5 = $sliceType($Uint16);
-	ptrType$10 = $ptrType(dirInfo);
-	sliceType$7 = $sliceType($Int32);
 	ptrType$11 = $ptrType(file);
 	funcType$1 = $funcType([ptrType$11], [$error], false);
-	ptrType$12 = $ptrType($Uint16);
-	ptrType$13 = $ptrType($Uint8);
+	ptrType$12 = $ptrType($Int32);
 	ptrType$14 = $ptrType(fileStat);
-	ptrType$17 = $ptrType(SyscallError);
+	ptrType$15 = $ptrType(SyscallError);
 	runtime_args = function() {
 		var $ptr;
 		return $pkg.Args;
@@ -6773,55 +6141,76 @@ $packages["os"] = (function() {
 		}
 	};
 	File.ptr.prototype.readdirnames = function(n) {
-		var $ptr, _i, _r, _ref, _tmp, _tmp$1, _tuple, err, fi, file$1, fis, i, n, names, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _r = $f._r; _ref = $f._ref; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tuple = $f._tuple; err = $f.err; fi = $f.fi; file$1 = $f.file$1; fis = $f.fis; i = $f.i; n = $f.n; names = $f.names; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tuple, _tuple$1, _tuple$2, d, err, errno, f, n, names, nb, nc, size;
 		names = sliceType.nil;
 		err = $ifaceNil;
-		file$1 = this;
-		_tuple = file$1.Readdir(n); fis = _tuple[0]; err = _tuple[1];
-		names = $makeSlice(sliceType, fis.$length);
-		_ref = fis;
-		_i = 0;
-		/* while (true) { */ case 1:
-			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 2; continue; }
-			i = _i;
-			fi = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			_r = fi.Name(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			((i < 0 || i >= names.$length) ? $throwRuntimeError("index out of range") : names.$array[names.$offset + i] = _r);
-			_i++;
-		/* } */ $s = 1; continue; case 2:
-		_tmp = names; _tmp$1 = err; names = _tmp; err = _tmp$1;
+		f = this;
+		if (f.file.dirinfo === ptrType.nil) {
+			f.file.dirinfo = new dirInfo.ptr();
+			f.file.dirinfo.buf = $makeSlice(sliceType$1, 4096);
+		}
+		d = f.file.dirinfo;
+		size = n;
+		if (size <= 0) {
+			size = 100;
+			n = -1;
+		}
+		names = $makeSlice(sliceType, 0, size);
+		while (true) {
+			if (!(!((n === 0)))) { break; }
+			if (d.bufp >= d.nbuf) {
+				d.bufp = 0;
+				errno = $ifaceNil;
+				_tuple$1 = syscall.ReadDirent(f.file.fd, d.buf);
+				_tuple = fixCount(_tuple$1[0], _tuple$1[1]); d.nbuf = _tuple[0]; errno = _tuple[1];
+				if (!($interfaceIsEqual(errno, $ifaceNil))) {
+					_tmp = names; _tmp$1 = NewSyscallError("readdirent", errno); names = _tmp; err = _tmp$1;
+					return [names, err];
+				}
+				if (d.nbuf <= 0) {
+					break;
+				}
+			}
+			_tmp$2 = 0; _tmp$3 = 0; nb = _tmp$2; nc = _tmp$3;
+			_tuple$2 = syscall.ParseDirent($subslice(d.buf, d.bufp, d.nbuf), n, names); nb = _tuple$2[0]; nc = _tuple$2[1]; names = _tuple$2[2];
+			d.bufp = d.bufp + (nb) >> 0;
+			n = n - (nc) >> 0;
+		}
+		if (n >= 0 && (names.$length === 0)) {
+			_tmp$4 = names; _tmp$5 = io.EOF; names = _tmp$4; err = _tmp$5;
+			return [names, err];
+		}
+		_tmp$6 = names; _tmp$7 = $ifaceNil; names = _tmp$6; err = _tmp$7;
 		return [names, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.readdirnames }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f.err = err; $f.fi = fi; $f.file$1 = file$1; $f.fis = fis; $f.i = i; $f.n = n; $f.names = names; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.readdirnames = function(n) { return this.$val.readdirnames(n); };
 	File.ptr.prototype.Readdir = function(n) {
-		var $ptr, _tmp, _tmp$1, _tuple, err, f, fi, n;
-		fi = sliceType$1.nil;
+		var $ptr, _r, _tmp, _tmp$1, _tuple, err, f, fi, n, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tuple = $f._tuple; err = $f.err; f = $f.f; fi = $f.fi; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		fi = sliceType$2.nil;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
-			_tmp = sliceType$1.nil; _tmp$1 = $pkg.ErrInvalid; fi = _tmp; err = _tmp$1;
+		if (f === ptrType$2.nil) {
+			_tmp = sliceType$2.nil; _tmp$1 = $pkg.ErrInvalid; fi = _tmp; err = _tmp$1;
 			return [fi, err];
 		}
-		_tuple = f.readdir(n); fi = _tuple[0]; err = _tuple[1];
+		_r = f.readdir(n); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_tuple = _r; fi = _tuple[0]; err = _tuple[1];
 		return [fi, err];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Readdir }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f.err = err; $f.f = f; $f.fi = fi; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.Readdir = function(n) { return this.$val.Readdir(n); };
 	File.ptr.prototype.Readdirnames = function(n) {
-		var $ptr, _r, _tmp, _tmp$1, _tuple, err, f, n, names, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tuple = $f._tuple; err = $f.err; f = $f.f; n = $f.n; names = $f.names; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tuple, err, f, n, names;
 		names = sliceType.nil;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			_tmp = sliceType.nil; _tmp$1 = $pkg.ErrInvalid; names = _tmp; err = _tmp$1;
 			return [names, err];
 		}
-		_r = f.readdirnames(n); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple = _r; names = _tuple[0]; err = _tuple[1];
+		_tuple = f.readdirnames(n); names = _tuple[0]; err = _tuple[1];
 		return [names, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Readdirnames }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f.err = err; $f.f = f; $f.n = n; $f.names = names; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.Readdirnames = function(n) { return this.$val.Readdirnames(n); };
 	PathError.ptr.prototype.Error = function() {
@@ -6850,27 +6239,25 @@ $packages["os"] = (function() {
 		return new SyscallError.ptr(syscall$1, err);
 	};
 	$pkg.NewSyscallError = NewSyscallError;
-	init$1 = function() {
-		var $ptr, _i, _ref, _tuple, argc, argc_ptr, argv, cmd, e, i, v, $deferred;
-		/* */ var $err = null; try { $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		argc = 0;
-		cmd = syscall.GetCommandLine();
-		_tuple = syscall.CommandLineToArgv(cmd, (argc_ptr || (argc_ptr = new ptrType$8(function() { return argc; }, function($v) { argc = $v; })))); argv = _tuple[0]; e = _tuple[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			return;
+	IsNotExist = function(err) {
+		var $ptr, err;
+		return isNotExist(err);
+	};
+	$pkg.IsNotExist = IsNotExist;
+	isNotExist = function(err) {
+		var $ptr, _ref, err, pe, pe$1, pe$2;
+		_ref = err;
+		if (_ref === $ifaceNil) {
+			pe = _ref;
+			return false;
+		} else if ($assertType(_ref, ptrType$3, true)[1]) {
+			pe$1 = _ref.$val;
+			err = pe$1.Err;
+		} else if ($assertType(_ref, ptrType$4, true)[1]) {
+			pe$2 = _ref.$val;
+			err = pe$2.Err;
 		}
-		$deferred.push([syscall.LocalFree, [(argv >>> 0)]]);
-		$pkg.Args = $makeSlice(sliceType, argc);
-		_ref = $subslice(new sliceType$4((argv)), 0, argc);
-		_i = 0;
-		while (true) {
-			if (!(_i < _ref.$length)) { break; }
-			i = _i;
-			v = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			((i < 0 || i >= $pkg.Args.$length) ? $throwRuntimeError("index out of range") : $pkg.Args.$array[$pkg.Args.$offset + i] = syscall.UTF16ToString(new sliceType$5((v))));
-			_i++;
-		}
-		/* */ } catch(err) { $err = err; } finally { $callDeferred($deferred, $err); }
+		return $interfaceIsEqual(err, new syscall.Errno(2)) || $interfaceIsEqual(err, $pkg.ErrNotExist);
 	};
 	File.ptr.prototype.Name = function() {
 		var $ptr, f;
@@ -6878,18 +6265,25 @@ $packages["os"] = (function() {
 		return f.file.name;
 	};
 	File.prototype.Name = function() { return this.$val.Name(); };
+	LinkError.ptr.prototype.Error = function() {
+		var $ptr, _r, e, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; e = $f.e; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		e = this;
+		_r = e.Err.Error(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		return e.Op + " " + e.Old + " " + e.New + ": " + _r;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: LinkError.ptr.prototype.Error }; } $f.$ptr = $ptr; $f._r = _r; $f.e = e; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	LinkError.prototype.Error = function() { return this.$val.Error(); };
 	File.ptr.prototype.Read = function(b) {
-		var $ptr, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, b, e, err, f, n, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tuple = $f._tuple; b = $f.b; e = $f.e; err = $f.err; f = $f.f; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, b, e, err, f, n;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			_tmp = 0; _tmp$1 = $pkg.ErrInvalid; n = _tmp; err = _tmp$1;
 			return [n, err];
 		}
-		_r = f.read(b); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple = _r; n = _tuple[0]; e = _tuple[1];
+		_tuple = f.read(b); n = _tuple[0]; e = _tuple[1];
 		if (n < 0) {
 			n = 0;
 		}
@@ -6902,51 +6296,45 @@ $packages["os"] = (function() {
 		}
 		_tmp$4 = n; _tmp$5 = err; n = _tmp$4; err = _tmp$5;
 		return [n, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Read }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple = _tuple; $f.b = b; $f.e = e; $f.err = err; $f.f = f; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.Read = function(b) { return this.$val.Read(b); };
 	File.ptr.prototype.ReadAt = function(b, off) {
-		var $ptr, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, f, m, n, off, x, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tuple = $f._tuple; b = $f.b; e = $f.e; err = $f.err; f = $f.f; m = $f.m; n = $f.n; off = $f.off; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, f, m, n, off, x;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			_tmp = 0; _tmp$1 = $pkg.ErrInvalid; n = _tmp; err = _tmp$1;
 			return [n, err];
 		}
-		/* while (true) { */ case 1:
-			/* if (!(b.$length > 0)) { break; } */ if(!(b.$length > 0)) { $s = 2; continue; }
-			_r = f.pread(b, off); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			_tuple = _r; m = _tuple[0]; e = _tuple[1];
+		while (true) {
+			if (!(b.$length > 0)) { break; }
+			_tuple = f.pread(b, off); m = _tuple[0]; e = _tuple[1];
 			if ((m === 0) && $interfaceIsEqual(e, $ifaceNil)) {
 				_tmp$2 = n; _tmp$3 = io.EOF; n = _tmp$2; err = _tmp$3;
 				return [n, err];
 			}
 			if (!($interfaceIsEqual(e, $ifaceNil))) {
 				err = new PathError.ptr("read", f.file.name, e);
-				/* break; */ $s = 2; continue;
+				break;
 			}
 			n = n + (m) >> 0;
 			b = $subslice(b, m);
 			off = (x = new $Int64(0, m), new $Int64(off.$high + x.$high, off.$low + x.$low));
-		/* } */ $s = 1; continue; case 2:
+		}
 		return [n, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.ReadAt }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tuple = _tuple; $f.b = b; $f.e = e; $f.err = err; $f.f = f; $f.m = m; $f.n = n; $f.off = off; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.ReadAt = function(b, off) { return this.$val.ReadAt(b, off); };
 	File.ptr.prototype.Write = function(b) {
-		var $ptr, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, f, n, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tuple = $f._tuple; b = $f.b; e = $f.e; err = $f.err; f = $f.f; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, f, n;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			_tmp = 0; _tmp$1 = $pkg.ErrInvalid; n = _tmp; err = _tmp$1;
 			return [n, err];
 		}
-		_r = f.write(b); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple = _r; n = _tuple[0]; e = _tuple[1];
+		_tuple = f.write(b); n = _tuple[0]; e = _tuple[1];
 		if (n < 0) {
 			n = 0;
 		}
@@ -6959,49 +6347,43 @@ $packages["os"] = (function() {
 		}
 		_tmp$2 = n; _tmp$3 = err; n = _tmp$2; err = _tmp$3;
 		return [n, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Write }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tuple = _tuple; $f.b = b; $f.e = e; $f.err = err; $f.f = f; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.Write = function(b) { return this.$val.Write(b); };
 	File.ptr.prototype.WriteAt = function(b, off) {
-		var $ptr, _r, _tmp, _tmp$1, _tuple, b, e, err, f, m, n, off, x, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tuple = $f._tuple; b = $f.b; e = $f.e; err = $f.err; f = $f.f; m = $f.m; n = $f.n; off = $f.off; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tuple, b, e, err, f, m, n, off, x;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			_tmp = 0; _tmp$1 = $pkg.ErrInvalid; n = _tmp; err = _tmp$1;
 			return [n, err];
 		}
-		/* while (true) { */ case 1:
-			/* if (!(b.$length > 0)) { break; } */ if(!(b.$length > 0)) { $s = 2; continue; }
-			_r = f.pwrite(b, off); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			_tuple = _r; m = _tuple[0]; e = _tuple[1];
+		while (true) {
+			if (!(b.$length > 0)) { break; }
+			_tuple = f.pwrite(b, off); m = _tuple[0]; e = _tuple[1];
 			if (!($interfaceIsEqual(e, $ifaceNil))) {
 				err = new PathError.ptr("write", f.file.name, e);
-				/* break; */ $s = 2; continue;
+				break;
 			}
 			n = n + (m) >> 0;
 			b = $subslice(b, m);
 			off = (x = new $Int64(0, m), new $Int64(off.$high + x.$high, off.$low + x.$low));
-		/* } */ $s = 1; continue; case 2:
+		}
 		return [n, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.WriteAt }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f.b = b; $f.e = e; $f.err = err; $f.f = f; $f.m = m; $f.n = n; $f.off = off; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.WriteAt = function(b, off) { return this.$val.WriteAt(b, off); };
 	File.ptr.prototype.Seek = function(offset, whence) {
-		var $ptr, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, e, err, f, offset, r, ret, whence, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tuple = $f._tuple; e = $f.e; err = $f.err; f = $f.f; offset = $f.offset; r = $f.r; ret = $f.ret; whence = $f.whence; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, e, err, f, offset, r, ret, whence;
 		ret = new $Int64(0, 0);
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			_tmp = new $Int64(0, 0); _tmp$1 = $pkg.ErrInvalid; ret = _tmp; err = _tmp$1;
 			return [ret, err];
 		}
-		_r = f.seek(offset, whence); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple = _r; r = _tuple[0]; e = _tuple[1];
-		if ($interfaceIsEqual(e, $ifaceNil) && !(f.file.dirinfo === ptrType$10.nil) && !((r.$high === 0 && r.$low === 0))) {
-			e = new syscall.Errno(536870954);
+		_tuple = f.seek(offset, whence); r = _tuple[0]; e = _tuple[1];
+		if ($interfaceIsEqual(e, $ifaceNil) && !(f.file.dirinfo === ptrType.nil) && !((r.$high === 0 && r.$low === 0))) {
+			e = new syscall.Errno(21);
 		}
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
 			_tmp$2 = new $Int64(0, 0); _tmp$3 = new PathError.ptr("seek", f.file.name, e); ret = _tmp$2; err = _tmp$3;
@@ -7009,29 +6391,25 @@ $packages["os"] = (function() {
 		}
 		_tmp$4 = r; _tmp$5 = $ifaceNil; ret = _tmp$4; err = _tmp$5;
 		return [ret, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Seek }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple = _tuple; $f.e = e; $f.err = err; $f.f = f; $f.offset = offset; $f.r = r; $f.ret = ret; $f.whence = whence; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.Seek = function(offset, whence) { return this.$val.Seek(offset, whence); };
 	File.ptr.prototype.WriteString = function(s) {
-		var $ptr, _r, _tmp, _tmp$1, _tuple, err, f, ret, s, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tuple = $f._tuple; err = $f.err; f = $f.f; ret = $f.ret; s = $f.s; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _tmp, _tmp$1, _tuple, err, f, ret, s;
 		ret = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			_tmp = 0; _tmp$1 = $pkg.ErrInvalid; ret = _tmp; err = _tmp$1;
 			return [ret, err];
 		}
-		_r = f.Write(new sliceType$2($stringToBytes(s))); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple = _r; ret = _tuple[0]; err = _tuple[1];
+		_tuple = f.Write(new sliceType$1($stringToBytes(s))); ret = _tuple[0]; err = _tuple[1];
 		return [ret, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.WriteString }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f.err = err; $f.f = f; $f.ret = ret; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.WriteString = function(s) { return this.$val.WriteString(s); };
 	File.ptr.prototype.Chdir = function() {
 		var $ptr, e, f;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			return $pkg.ErrInvalid;
 		}
 		e = syscall.Fchdir(f.file.fd);
@@ -7048,23 +6426,9 @@ $packages["os"] = (function() {
 		}
 		return [n, err];
 	};
-	Readlink = function(name) {
-		var $ptr, _tuple, _tuple$1, b, e, len, n, name;
-		len = 128;
-		while (true) {
-			b = $makeSlice(sliceType$2, len);
-			_tuple$1 = syscall.Readlink(name, b);
-			_tuple = fixCount(_tuple$1[0], _tuple$1[1]); n = _tuple[0]; e = _tuple[1];
-			if (!($interfaceIsEqual(e, $ifaceNil))) {
-				return ["", new PathError.ptr("readlink", name, e)];
-			}
-			if (n < len) {
-				return [$bytesToString($subslice(b, 0, n)), $ifaceNil];
-			}
-			len = len * (2) >> 0;
-		}
+	sigpipe = function() {
+		$panic("Native function not implemented: os.sigpipe");
 	};
-	$pkg.Readlink = Readlink;
 	syscallMode = function(i) {
 		var $ptr, i, o;
 		o = 0;
@@ -7083,7 +6447,7 @@ $packages["os"] = (function() {
 	File.ptr.prototype.Chmod = function(mode) {
 		var $ptr, e, f, mode;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			return $pkg.ErrInvalid;
 		}
 		e = syscall.Fchmod(f.file.fd, syscallMode(mode));
@@ -7096,7 +6460,7 @@ $packages["os"] = (function() {
 	File.ptr.prototype.Chown = function(uid, gid) {
 		var $ptr, e, f, gid, uid;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			return $pkg.ErrInvalid;
 		}
 		e = syscall.Fchown(f.file.fd, uid, gid);
@@ -7109,7 +6473,7 @@ $packages["os"] = (function() {
 	File.ptr.prototype.Truncate = function(size) {
 		var $ptr, e, f, size;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			return $pkg.ErrInvalid;
 		}
 		e = syscall.Ftruncate(f.file.fd, size);
@@ -7123,7 +6487,7 @@ $packages["os"] = (function() {
 		var $ptr, e, err, f;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			err = $pkg.ErrInvalid;
 			return err;
 		}
@@ -7137,464 +6501,198 @@ $packages["os"] = (function() {
 	};
 	File.prototype.Sync = function() { return this.$val.Sync(); };
 	File.ptr.prototype.Fd = function() {
-		var $ptr, file$1;
-		file$1 = this;
-		if (file$1 === ptrType$1.nil) {
+		var $ptr, f;
+		f = this;
+		if (f === ptrType$2.nil) {
 			return 4294967295;
 		}
-		return (file$1.file.fd >>> 0);
+		return (f.file.fd >>> 0);
 	};
 	File.prototype.Fd = function() { return this.$val.Fd(); };
-	newFile = function(h, name) {
-		var $ptr, f, h, m, m_ptr, name;
-		f = new File.ptr(new file.ptr(h, name, ptrType$10.nil, new sync.Mutex.ptr(), false, sliceType$2.nil, sliceType$7.nil));
-		m = 0;
-		if ($interfaceIsEqual(syscall.GetConsoleMode(f.file.fd, (m_ptr || (m_ptr = new ptrType$4(function() { return m; }, function($v) { m = $v; })))), $ifaceNil)) {
-			f.file.isConsole = true;
+	NewFile = function(fd, name) {
+		var $ptr, f, fd, fdi, name;
+		fdi = (fd >> 0);
+		if (fdi < 0) {
+			return ptrType$2.nil;
 		}
+		f = new File.ptr(new file.ptr(fdi, name, ptrType.nil, 0));
 		runtime.SetFinalizer(f.file, new funcType$1($methodExpr(ptrType$11.prototype.close)));
 		return f;
-	};
-	NewFile = function(fd, name) {
-		var $ptr, fd, h, name;
-		h = (fd >>> 0);
-		if (h === 4294967295) {
-			return ptrType$1.nil;
-		}
-		return newFile(h, name);
 	};
 	$pkg.NewFile = NewFile;
 	epipecheck = function(file$1, e) {
 		var $ptr, e, file$1;
+		if ($interfaceIsEqual(e, new syscall.Errno(32))) {
+			if (atomic.AddInt32((file$1.$ptr_nepipe || (file$1.$ptr_nepipe = new ptrType$12(function() { return this.$target.file.nepipe; }, function($v) { this.$target.file.nepipe = $v; }, file$1))), 1) >= 10) {
+				sigpipe();
+			}
+		} else {
+			atomic.StoreInt32((file$1.$ptr_nepipe || (file$1.$ptr_nepipe = new ptrType$12(function() { return this.$target.file.nepipe; }, function($v) { this.$target.file.nepipe = $v; }, file$1))), 0);
+		}
 	};
-	file.ptr.prototype.isdir = function() {
+	File.ptr.prototype.Close = function() {
 		var $ptr, f;
 		f = this;
-		return !(f === ptrType$11.nil) && !(f.dirinfo === ptrType$10.nil);
-	};
-	file.prototype.isdir = function() { return this.$val.isdir(); };
-	File.ptr.prototype.Close = function() {
-		var $ptr, file$1;
-		file$1 = this;
-		if (file$1 === ptrType$1.nil) {
+		if (f === ptrType$2.nil) {
 			return $pkg.ErrInvalid;
 		}
-		return file$1.file.close();
+		return f.file.close();
 	};
 	File.prototype.Close = function() { return this.$val.Close(); };
 	file.ptr.prototype.close = function() {
 		var $ptr, e, err, file$1;
 		file$1 = this;
-		if (file$1 === ptrType$11.nil) {
-			return new syscall.Errno(536870951);
-		}
-		if (file$1.isdir() && file$1.dirinfo.isempty) {
-			return $ifaceNil;
-		}
-		if (file$1.fd === 4294967295) {
-			return new syscall.Errno(536870951);
-		}
-		e = $ifaceNil;
-		if (file$1.isdir()) {
-			e = syscall.FindClose(file$1.fd);
-		} else {
-			e = syscall.CloseHandle(file$1.fd);
+		if (file$1 === ptrType$11.nil || file$1.fd < 0) {
+			return new syscall.Errno(22);
 		}
 		err = $ifaceNil;
+		e = syscall.Close(file$1.fd);
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
 			err = new PathError.ptr("close", file$1.name, e);
 		}
-		file$1.fd = 4294967295;
+		file$1.fd = -1;
 		runtime.SetFinalizer(file$1, $ifaceNil);
 		return err;
 	};
 	file.prototype.close = function() { return this.$val.close(); };
-	File.ptr.prototype.readdir = function(n) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tmp$8, _tmp$9, d, e, err, f, fi, file$1, n, name, size, wantAll;
-		fi = sliceType$1.nil;
-		err = $ifaceNil;
-		file$1 = this;
-		if (file$1 === ptrType$1.nil) {
-			_tmp = sliceType$1.nil; _tmp$1 = new syscall.Errno(536870951); fi = _tmp; err = _tmp$1;
-			return [fi, err];
-		}
-		if (!file$1.file.isdir()) {
-			_tmp$2 = sliceType$1.nil; _tmp$3 = new PathError.ptr("Readdir", file$1.file.name, new syscall.Errno(3)); fi = _tmp$2; err = _tmp$3;
-			return [fi, err];
-		}
-		if (!file$1.file.dirinfo.isempty && (file$1.file.fd === 4294967295)) {
-			_tmp$4 = sliceType$1.nil; _tmp$5 = new syscall.Errno(536870951); fi = _tmp$4; err = _tmp$5;
-			return [fi, err];
-		}
-		wantAll = n <= 0;
-		size = n;
-		if (wantAll) {
-			n = -1;
-			size = 100;
-		}
-		fi = $makeSlice(sliceType$1, 0, size);
-		d = file$1.file.dirinfo.data;
-		while (true) {
-			if (!(!((n === 0)) && !file$1.file.dirinfo.isempty)) { break; }
-			if (file$1.file.dirinfo.needdata) {
-				e = syscall.FindNextFile(file$1.file.fd, d);
-				if (!($interfaceIsEqual(e, $ifaceNil))) {
-					if ($interfaceIsEqual(e, new syscall.Errno(18))) {
-						break;
-					} else {
-						err = new PathError.ptr("FindNextFile", file$1.file.name, e);
-						if (!wantAll) {
-							fi = sliceType$1.nil;
-						}
-						return [fi, err];
-					}
-				}
-			}
-			file$1.file.dirinfo.needdata = true;
-			name = syscall.UTF16ToString($subslice(new sliceType$5(d.FileName), 0));
-			if (name === "." || name === "..") {
-				continue;
-			}
-			f = new fileStat.ptr(name, new syscall.Win32FileAttributeData.ptr(d.FileAttributes, $clone(d.CreationTime, syscall.Filetime), $clone(d.LastAccessTime, syscall.Filetime), $clone(d.LastWriteTime, syscall.Filetime), d.FileSizeHigh, d.FileSizeLow), new sync.Mutex.ptr(), file$1.file.dirinfo.path + "\\" + name, 0, 0, 0);
-			n = n - (1) >> 0;
-			fi = $append(fi, f);
-		}
-		if (!wantAll && (fi.$length === 0)) {
-			_tmp$6 = fi; _tmp$7 = io.EOF; fi = _tmp$6; err = _tmp$7;
-			return [fi, err];
-		}
-		_tmp$8 = fi; _tmp$9 = $ifaceNil; fi = _tmp$8; err = _tmp$9;
-		return [fi, err];
-	};
-	File.prototype.readdir = function(n) { return this.$val.readdir(n); };
-	File.ptr.prototype.readConsole = function(b) {
-		var $ptr, _i, _ref, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, b, err, err$1, f, i, n, nr, numBytes, nw, nw_ptr, p, r, wchars;
-		n = 0;
-		err = $ifaceNil;
-		f = this;
-		if (b.$length === 0) {
-			_tmp = 0; _tmp$1 = $ifaceNil; n = _tmp; err = _tmp$1;
-			return [n, err];
-		}
-		if (f.file.readbuf.$length === 0) {
-			numBytes = b.$length;
-			if (numBytes > 16000) {
-				numBytes = 16000;
-			}
-			wchars = $makeSlice(sliceType$5, numBytes);
-			p = ptrType$12.nil;
-			if (b.$length > 0) {
-				p = $indexPtr(wchars.$array, wchars.$offset + 0, ptrType$12);
-			}
-			nw = 0;
-			err$1 = syscall.ReadConsole(f.file.fd, p, (wchars.$length >>> 0), (nw_ptr || (nw_ptr = new ptrType$4(function() { return nw; }, function($v) { nw = $v; }))), ptrType$13.nil);
-			if (!($interfaceIsEqual(err$1, $ifaceNil))) {
-				_tmp$2 = 0; _tmp$3 = err$1; n = _tmp$2; err = _tmp$3;
-				return [n, err];
-			}
-			f.file.readbuf = utf16.Decode($subslice(wchars, 0, nw));
-		}
-		_ref = f.file.readbuf;
-		_i = 0;
-		while (true) {
-			if (!(_i < _ref.$length)) { break; }
-			i = _i;
-			r = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			if (utf8.RuneLen(r) > b.$length) {
-				f.file.readbuf = $subslice(f.file.readbuf, i);
-				_tmp$4 = n; _tmp$5 = $ifaceNil; n = _tmp$4; err = _tmp$5;
-				return [n, err];
-			}
-			nr = utf8.EncodeRune(b, r);
-			b = $subslice(b, nr);
-			n = n + (nr) >> 0;
-			_i++;
-		}
-		f.file.readbuf = sliceType$7.nil;
-		_tmp$6 = n; _tmp$7 = $ifaceNil; n = _tmp$6; err = _tmp$7;
-		return [n, err];
-	};
-	File.prototype.readConsole = function(b) { return this.$val.readConsole(b); };
-	File.ptr.prototype.read = function(b) {
-		var $ptr, _tuple, _tuple$1, _tuple$2, b, err, f, n, $s, $deferred, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; b = $f.b; err = $f.err; f = $f.f; n = $f.n; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		n = 0;
-		err = $ifaceNil;
-		f = this;
-		$r = f.file.l.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$deferred.push([$methodVal(f.file.l, "Unlock"), []]);
-		if (f.file.isConsole) {
-			_tuple = f.readConsole(b); n = _tuple[0]; err = _tuple[1];
-			return [n, err];
-		}
-		_tuple$2 = syscall.Read(f.file.fd, b);
-		_tuple$1 = fixCount(_tuple$2[0], _tuple$2[1]); n = _tuple$1[0]; err = _tuple$1[1];
-		return [n, err];
-		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [n, err]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: File.ptr.prototype.read }; } $f.$ptr = $ptr; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f.b = b; $f.err = err; $f.f = f; $f.n = n; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
-	};
-	File.prototype.read = function(b) { return this.$val.read(b); };
-	File.ptr.prototype.pread = function(b, off) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tuple, b, curoffset, done, e, err, f, n, o, off, $s, $deferred, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tmp$6 = $f._tmp$6; _tmp$7 = $f._tmp$7; _tuple = $f._tuple; b = $f.b; curoffset = $f.curoffset; done = $f.done; e = $f.e; err = $f.err; f = $f.f; n = $f.n; o = $f.o; off = $f.off; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		done = [done];
-		o = [o];
-		n = 0;
-		err = $ifaceNil;
-		f = this;
-		$r = f.file.l.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$deferred.push([$methodVal(f.file.l, "Unlock"), []]);
-		_tuple = syscall.Seek(f.file.fd, new $Int64(0, 0), 1); curoffset = _tuple[0]; e = _tuple[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp = 0; _tmp$1 = e; n = _tmp; err = _tmp$1;
-			return [n, err];
-		}
-		$deferred.push([syscall.Seek, [f.file.fd, curoffset, 0]]);
-		o[0] = new syscall.Overlapped.ptr(0, 0, (off.$low >>> 0), ($shiftRightInt64(off, 32).$low >>> 0), 0);
-		done[0] = 0;
-		e = syscall.ReadFile(f.file.fd, b, (done.$ptr || (done.$ptr = new ptrType$4(function() { return this.$target[0]; }, function($v) { this.$target[0] = $v; }, done))), o[0]);
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			if ($interfaceIsEqual(e, new syscall.Errno(38))) {
-				_tmp$2 = 0; _tmp$3 = $ifaceNil; n = _tmp$2; err = _tmp$3;
-				return [n, err];
-			}
-			_tmp$4 = 0; _tmp$5 = e; n = _tmp$4; err = _tmp$5;
-			return [n, err];
-		}
-		_tmp$6 = (done[0] >> 0); _tmp$7 = $ifaceNil; n = _tmp$6; err = _tmp$7;
-		return [n, err];
-		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [n, err]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: File.ptr.prototype.pread }; } $f.$ptr = $ptr; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tmp$6 = _tmp$6; $f._tmp$7 = _tmp$7; $f._tuple = _tuple; $f.b = b; $f.curoffset = curoffset; $f.done = done; $f.e = e; $f.err = err; $f.f = f; $f.n = n; $f.o = o; $f.off = off; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
-	};
-	File.prototype.pread = function(b, off) { return this.$val.pread(b, off); };
-	File.ptr.prototype.writeConsole = function(b) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, chunk, err, f, l, m, n, r, runes, uint16s, written;
-		n = 0;
-		err = $ifaceNil;
-		f = this;
-		n = b.$length;
-		runes = $makeSlice(sliceType$7, 0, 256);
-		if (f.file.lastbits.$length > 0) {
-			b = $appendSlice(f.file.lastbits, b);
-			f.file.lastbits = sliceType$2.nil;
-		}
-		while (true) {
-			if (!(b.$length >= 4 || utf8.FullRune(b))) { break; }
-			_tuple = utf8.DecodeRune(b); r = _tuple[0]; l = _tuple[1];
-			runes = $append(runes, r);
-			b = $subslice(b, l);
-		}
-		if (b.$length > 0) {
-			f.file.lastbits = $makeSlice(sliceType$2, b.$length);
-			$copySlice(f.file.lastbits, b);
-		}
-		while (true) {
-			if (!(runes.$length > 0)) { break; }
-			m = runes.$length;
-			if (m > 16000) {
-				m = 16000;
-			}
-			chunk = $subslice(runes, 0, m);
-			runes = $subslice(runes, m);
-			uint16s = utf16.Encode(chunk);
-			while (true) {
-				if (!(uint16s.$length > 0)) { break; }
-				written = [written];
-				written[0] = 0;
-				err = syscall.WriteConsole(f.file.fd, $indexPtr(uint16s.$array, uint16s.$offset + 0, ptrType$12), (uint16s.$length >>> 0), (written.$ptr || (written.$ptr = new ptrType$4(function() { return this.$target[0]; }, function($v) { this.$target[0] = $v; }, written))), ptrType$13.nil);
-				if (!($interfaceIsEqual(err, $ifaceNil))) {
-					_tmp = 0; _tmp$1 = $ifaceNil; n = _tmp; err = _tmp$1;
-					return [n, err];
-				}
-				uint16s = $subslice(uint16s, written[0]);
-			}
-		}
-		_tmp$2 = n; _tmp$3 = $ifaceNil; n = _tmp$2; err = _tmp$3;
-		return [n, err];
-	};
-	File.prototype.writeConsole = function(b) { return this.$val.writeConsole(b); };
-	File.ptr.prototype.write = function(b) {
-		var $ptr, _tuple, _tuple$1, _tuple$2, b, err, f, n, $s, $deferred, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; b = $f.b; err = $f.err; f = $f.f; n = $f.n; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		n = 0;
-		err = $ifaceNil;
-		f = this;
-		$r = f.file.l.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$deferred.push([$methodVal(f.file.l, "Unlock"), []]);
-		if (f.file.isConsole) {
-			_tuple = f.writeConsole(b); n = _tuple[0]; err = _tuple[1];
-			return [n, err];
-		}
-		_tuple$2 = syscall.Write(f.file.fd, b);
-		_tuple$1 = fixCount(_tuple$2[0], _tuple$2[1]); n = _tuple$1[0]; err = _tuple$1[1];
-		return [n, err];
-		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [n, err]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: File.ptr.prototype.write }; } $f.$ptr = $ptr; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f.b = b; $f.err = err; $f.f = f; $f.n = n; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
-	};
-	File.prototype.write = function(b) { return this.$val.write(b); };
-	File.ptr.prototype.pwrite = function(b, off) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, b, curoffset, done, e, err, f, n, o, off, $s, $deferred, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tuple = $f._tuple; b = $f.b; curoffset = $f.curoffset; done = $f.done; e = $f.e; err = $f.err; f = $f.f; n = $f.n; o = $f.o; off = $f.off; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		done = [done];
-		o = [o];
-		n = 0;
-		err = $ifaceNil;
-		f = this;
-		$r = f.file.l.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$deferred.push([$methodVal(f.file.l, "Unlock"), []]);
-		_tuple = syscall.Seek(f.file.fd, new $Int64(0, 0), 1); curoffset = _tuple[0]; e = _tuple[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp = 0; _tmp$1 = e; n = _tmp; err = _tmp$1;
-			return [n, err];
-		}
-		$deferred.push([syscall.Seek, [f.file.fd, curoffset, 0]]);
-		o[0] = new syscall.Overlapped.ptr(0, 0, (off.$low >>> 0), ($shiftRightInt64(off, 32).$low >>> 0), 0);
-		done[0] = 0;
-		e = syscall.WriteFile(f.file.fd, b, (done.$ptr || (done.$ptr = new ptrType$4(function() { return this.$target[0]; }, function($v) { this.$target[0] = $v; }, done))), o[0]);
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp$2 = 0; _tmp$3 = e; n = _tmp$2; err = _tmp$3;
-			return [n, err];
-		}
-		_tmp$4 = (done[0] >> 0); _tmp$5 = $ifaceNil; n = _tmp$4; err = _tmp$5;
-		return [n, err];
-		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [n, err]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: File.ptr.prototype.pwrite }; } $f.$ptr = $ptr; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple = _tuple; $f.b = b; $f.curoffset = curoffset; $f.done = done; $f.e = e; $f.err = err; $f.f = f; $f.n = n; $f.o = o; $f.off = off; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
-	};
-	File.prototype.pwrite = function(b, off) { return this.$val.pwrite(b, off); };
-	File.ptr.prototype.seek = function(offset, whence) {
-		var $ptr, _tuple, err, f, offset, ret, whence, $s, $deferred, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _tuple = $f._tuple; err = $f.err; f = $f.f; offset = $f.offset; ret = $f.ret; whence = $f.whence; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-		ret = new $Int64(0, 0);
-		err = $ifaceNil;
-		f = this;
-		$r = f.file.l.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$deferred.push([$methodVal(f.file.l, "Unlock"), []]);
-		_tuple = syscall.Seek(f.file.fd, offset, whence); ret = _tuple[0]; err = _tuple[1];
-		return [ret, err];
-		/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [ret, err]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: File.ptr.prototype.seek }; } $f.$ptr = $ptr; $f._tuple = _tuple; $f.err = err; $f.f = f; $f.offset = offset; $f.ret = ret; $f.whence = whence; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
-	};
-	File.prototype.seek = function(offset, whence) { return this.$val.seek(offset, whence); };
-	IsPathSeparator = function(c) {
-		var $ptr, c;
-		return (c === 92) || (c === 47);
-	};
-	$pkg.IsPathSeparator = IsPathSeparator;
-	init$2 = function() {
-		var $ptr;
-		return;
-		$pkg.Args = runtime_args();
-	};
 	File.ptr.prototype.Stat = function() {
-		var $ptr, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tmp$8, _tmp$9, _tuple, d, e, err, fi, file$1, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tmp$6 = $f._tmp$6; _tmp$7 = $f._tmp$7; _tmp$8 = $f._tmp$8; _tmp$9 = $f._tmp$9; _tuple = $f._tuple; d = $f.d; e = $f.e; err = $f.err; fi = $f.fi; file$1 = $f.file$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		d = [d];
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, err, f, fi, stat;
 		fi = $ifaceNil;
 		err = $ifaceNil;
-		file$1 = this;
-		if (file$1 === ptrType$1.nil) {
+		f = this;
+		if (f === ptrType$2.nil) {
 			_tmp = $ifaceNil; _tmp$1 = $pkg.ErrInvalid; fi = _tmp; err = _tmp$1;
 			return [fi, err];
 		}
-		if (file$1 === ptrType$1.nil || file$1.file.fd < 0) {
-			_tmp$2 = $ifaceNil; _tmp$3 = new syscall.Errno(536870951); fi = _tmp$2; err = _tmp$3;
+		stat = $clone(new syscall.Stat_t.ptr(), syscall.Stat_t);
+		err = syscall.Fstat(f.file.fd, stat);
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			_tmp$2 = $ifaceNil; _tmp$3 = new PathError.ptr("stat", f.file.name, err); fi = _tmp$2; err = _tmp$3;
 			return [fi, err];
 		}
-		/* */ if (file$1.file.isdir()) { $s = 1; continue; }
-		/* */ $s = 2; continue;
-		/* if (file$1.file.isdir()) { */ case 1:
-			_r = Stat(file$1.file.name); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			_tuple = _r; fi = _tuple[0]; err = _tuple[1];
-			return [fi, err];
-		/* } */ case 2:
-		if (file$1.file.name === "NUL") {
-			_tmp$4 = devNullStat; _tmp$5 = $ifaceNil; fi = _tmp$4; err = _tmp$5;
-			return [fi, err];
-		}
-		d[0] = $clone(new syscall.ByHandleFileInformation.ptr(), syscall.ByHandleFileInformation);
-		e = syscall.GetFileInformationByHandle(file$1.file.fd, d[0]);
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp$6 = $ifaceNil; _tmp$7 = new PathError.ptr("GetFileInformationByHandle", file$1.file.name, e); fi = _tmp$6; err = _tmp$7;
-			return [fi, err];
-		}
-		_tmp$8 = new fileStat.ptr(basename(file$1.file.name), new syscall.Win32FileAttributeData.ptr(d[0].FileAttributes, $clone(d[0].CreationTime, syscall.Filetime), $clone(d[0].LastAccessTime, syscall.Filetime), $clone(d[0].LastWriteTime, syscall.Filetime), d[0].FileSizeHigh, d[0].FileSizeLow), new sync.Mutex.ptr(), "", d[0].VolumeSerialNumber, d[0].FileIndexHigh, d[0].FileIndexLow); _tmp$9 = $ifaceNil; fi = _tmp$8; err = _tmp$9;
+		_tmp$4 = fileInfoFromStat(stat, f.file.name); _tmp$5 = $ifaceNil; fi = _tmp$4; err = _tmp$5;
 		return [fi, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Stat }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tmp$6 = _tmp$6; $f._tmp$7 = _tmp$7; $f._tmp$8 = _tmp$8; $f._tmp$9 = _tmp$9; $f._tuple = _tuple; $f.d = d; $f.e = e; $f.err = err; $f.fi = fi; $f.file$1 = file$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	File.prototype.Stat = function() { return this.$val.Stat(); };
-	Stat = function(name) {
-		var $ptr, _r, _tmp, _tmp$1, _tuple, _tuple$1, err, fi, name, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; err = $f.err; fi = $f.fi; name = $f.name; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		fi = $ifaceNil;
-		err = $ifaceNil;
-		/* while (true) { */ case 1:
-			_tuple = Lstat(name); fi = _tuple[0]; err = _tuple[1];
-			if (!($interfaceIsEqual(err, $ifaceNil))) {
-				return [fi, err];
-			}
-			_r = fi.Mode(); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			/* */ if (((_r & 134217728) >>> 0) === 0) { $s = 3; continue; }
-			/* */ $s = 4; continue;
-			/* if (((_r & 134217728) >>> 0) === 0) { */ case 3:
-				return [fi, err];
-			/* } */ case 4:
-			_tuple$1 = Readlink(name); name = _tuple$1[0]; err = _tuple$1[1];
-			if (!($interfaceIsEqual(err, $ifaceNil))) {
-				return [fi, err];
-			}
-		/* } */ $s = 1; continue; case 2:
-		_tmp = fi; _tmp$1 = err; fi = _tmp; err = _tmp$1;
-		return [fi, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Stat }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f.err = err; $f.fi = fi; $f.name = name; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.Stat = Stat;
 	Lstat = function(name) {
-		var $ptr, _tmp, _tmp$1, _tmp$10, _tmp$11, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tmp$8, _tmp$9, _tuple, _tuple$1, e, err, fi, fs, name, namep;
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, err, fi, name, stat;
 		fi = $ifaceNil;
 		err = $ifaceNil;
-		if (name.length === 0) {
-			_tmp = $ifaceNil; _tmp$1 = new PathError.ptr("Lstat", name, new syscall.Errno(3)); fi = _tmp; err = _tmp$1;
+		stat = $clone(new syscall.Stat_t.ptr(), syscall.Stat_t);
+		err = syscall.Lstat(name, stat);
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			_tmp = $ifaceNil; _tmp$1 = new PathError.ptr("lstat", name, err); fi = _tmp; err = _tmp$1;
 			return [fi, err];
 		}
-		if (name === "NUL") {
-			_tmp$2 = devNullStat; _tmp$3 = $ifaceNil; fi = _tmp$2; err = _tmp$3;
-			return [fi, err];
-		}
-		fs = new fileStat.ptr(basename(name), new syscall.Win32FileAttributeData.ptr(), new sync.Mutex.ptr(), "", 0, 0, 0);
-		_tuple = syscall.UTF16PtrFromString(name); namep = _tuple[0]; e = _tuple[1];
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp$4 = $ifaceNil; _tmp$5 = new PathError.ptr("Lstat", name, e); fi = _tmp$4; err = _tmp$5;
-			return [fi, err];
-		}
-		e = syscall.GetFileAttributesEx(namep, 0, fs.sys);
-		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			_tmp$6 = $ifaceNil; _tmp$7 = new PathError.ptr("GetFileAttributesEx", name, e); fi = _tmp$6; err = _tmp$7;
-			return [fi, err];
-		}
-		fs.path = name;
-		if (!isAbs(fs.path)) {
-			_tuple$1 = syscall.FullPath(fs.path); fs.path = _tuple$1[0]; e = _tuple$1[1];
-			if (!($interfaceIsEqual(e, $ifaceNil))) {
-				_tmp$8 = $ifaceNil; _tmp$9 = e; fi = _tmp$8; err = _tmp$9;
-				return [fi, err];
-			}
-		}
-		_tmp$10 = fs; _tmp$11 = $ifaceNil; fi = _tmp$10; err = _tmp$11;
+		_tmp$2 = fileInfoFromStat(stat, name); _tmp$3 = $ifaceNil; fi = _tmp$2; err = _tmp$3;
 		return [fi, err];
 	};
 	$pkg.Lstat = Lstat;
+	File.ptr.prototype.readdir = function(n) {
+		var $ptr, _i, _r, _ref, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, _tuple$1, dirname, err, f, fi, filename, fip, lerr, n, names, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _r = $f._r; _ref = $f._ref; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; dirname = $f.dirname; err = $f.err; f = $f.f; fi = $f.fi; filename = $f.filename; fip = $f.fip; lerr = $f.lerr; n = $f.n; names = $f.names; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		fi = sliceType$2.nil;
+		err = $ifaceNil;
+		f = this;
+		dirname = f.file.name;
+		if (dirname === "") {
+			dirname = ".";
+		}
+		_tuple = f.Readdirnames(n); names = _tuple[0]; err = _tuple[1];
+		fi = $makeSlice(sliceType$2, 0, names.$length);
+		_ref = names;
+		_i = 0;
+		/* while (true) { */ case 1:
+			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 2; continue; }
+			filename = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			_r = lstat(dirname + "/" + filename); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_tuple$1 = _r; fip = _tuple$1[0]; lerr = _tuple$1[1];
+			if (IsNotExist(lerr)) {
+				_i++;
+				/* continue; */ $s = 1; continue;
+			}
+			if (!($interfaceIsEqual(lerr, $ifaceNil))) {
+				_tmp = fi; _tmp$1 = lerr; fi = _tmp; err = _tmp$1;
+				return [fi, err];
+			}
+			fi = $append(fi, fip);
+			_i++;
+		/* } */ $s = 1; continue; case 2:
+		_tmp$2 = fi; _tmp$3 = err; fi = _tmp$2; err = _tmp$3;
+		return [fi, err];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.readdir }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f.dirname = dirname; $f.err = err; $f.f = f; $f.fi = fi; $f.filename = filename; $f.fip = fip; $f.lerr = lerr; $f.n = n; $f.names = names; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	File.prototype.readdir = function(n) { return this.$val.readdir(n); };
+	File.ptr.prototype.read = function(b) {
+		var $ptr, _tuple, _tuple$1, b, err, f, n;
+		n = 0;
+		err = $ifaceNil;
+		f = this;
+		_tuple$1 = syscall.Read(f.file.fd, b);
+		_tuple = fixCount(_tuple$1[0], _tuple$1[1]); n = _tuple[0]; err = _tuple[1];
+		return [n, err];
+	};
+	File.prototype.read = function(b) { return this.$val.read(b); };
+	File.ptr.prototype.pread = function(b, off) {
+		var $ptr, _tuple, _tuple$1, b, err, f, n, off;
+		n = 0;
+		err = $ifaceNil;
+		f = this;
+		_tuple$1 = syscall.Pread(f.file.fd, b, off);
+		_tuple = fixCount(_tuple$1[0], _tuple$1[1]); n = _tuple[0]; err = _tuple[1];
+		return [n, err];
+	};
+	File.prototype.pread = function(b, off) { return this.$val.pread(b, off); };
+	File.ptr.prototype.write = function(b) {
+		var $ptr, _tmp, _tmp$1, _tuple, _tuple$1, b, bcap, err, err$1, f, m, n;
+		n = 0;
+		err = $ifaceNil;
+		f = this;
+		while (true) {
+			bcap = b;
+			_tuple$1 = syscall.Write(f.file.fd, bcap);
+			_tuple = fixCount(_tuple$1[0], _tuple$1[1]); m = _tuple[0]; err$1 = _tuple[1];
+			n = n + (m) >> 0;
+			if (0 < m && m < bcap.$length || $interfaceIsEqual(err$1, new syscall.Errno(4))) {
+				b = $subslice(b, m);
+				continue;
+			}
+			_tmp = n; _tmp$1 = err$1; n = _tmp; err = _tmp$1;
+			return [n, err];
+		}
+	};
+	File.prototype.write = function(b) { return this.$val.write(b); };
+	File.ptr.prototype.pwrite = function(b, off) {
+		var $ptr, _tuple, _tuple$1, b, err, f, n, off;
+		n = 0;
+		err = $ifaceNil;
+		f = this;
+		_tuple$1 = syscall.Pwrite(f.file.fd, b, off);
+		_tuple = fixCount(_tuple$1[0], _tuple$1[1]); n = _tuple[0]; err = _tuple[1];
+		return [n, err];
+	};
+	File.prototype.pwrite = function(b, off) { return this.$val.pwrite(b, off); };
+	File.ptr.prototype.seek = function(offset, whence) {
+		var $ptr, _tuple, err, f, offset, ret, whence;
+		ret = new $Int64(0, 0);
+		err = $ifaceNil;
+		f = this;
+		_tuple = syscall.Seek(f.file.fd, offset, whence); ret = _tuple[0]; err = _tuple[1];
+		return [ret, err];
+	};
+	File.prototype.seek = function(offset, whence) { return this.$val.seek(offset, whence); };
 	basename = function(name) {
 		var $ptr, i, name;
-		if ((name.length === 2) && (name.charCodeAt(1) === 58)) {
-			name = ".";
-		} else if (name.length > 2 && (name.charCodeAt(1) === 58)) {
-			name = name.substring(2);
-		}
 		i = name.length - 1 >> 0;
 		while (true) {
-			if (!(i > 0 && ((name.charCodeAt(i) === 47) || (name.charCodeAt(i) === 92)))) { break; }
+			if (!(i > 0 && (name.charCodeAt(i) === 47))) { break; }
 			name = name.substring(0, i);
 			i = i - (1) >> 0;
 		}
 		i = i - (1) >> 0;
 		while (true) {
 			if (!(i >= 0)) { break; }
-			if ((name.charCodeAt(i) === 47) || (name.charCodeAt(i) === 92)) {
+			if (name.charCodeAt(i) === 47) {
 				name = name.substring((i + 1 >> 0));
 				break;
 			}
@@ -7602,62 +6700,44 @@ $packages["os"] = (function() {
 		}
 		return name;
 	};
-	isAbs = function(path) {
-		var $ptr, b, path, v;
-		b = false;
-		v = volumeName(path);
-		if (v === "") {
-			b = false;
-			return b;
-		}
-		path = path.substring(v.length);
-		if (path === "") {
-			b = false;
-			return b;
-		}
-		b = IsPathSeparator(path.charCodeAt(0));
-		return b;
+	init$1 = function() {
+		var $ptr;
+		$pkg.Args = runtime_args();
 	};
-	volumeName = function(path) {
-		var $ptr, c, l, n, path, v;
-		v = "";
-		if (path.length < 2) {
-			v = "";
-			return v;
+	fileInfoFromStat = function(st, name) {
+		var $ptr, _ref, fs, name, st;
+		fs = new fileStat.ptr(basename(name), st.Size, 0, $clone(timespecToTime(st.Mtim), time.Time), st);
+		fs.mode = (((st.Mode & 511) >>> 0) >>> 0);
+		_ref = (st.Mode & 61440) >>> 0;
+		if (_ref === 24576) {
+			fs.mode = (fs.mode | (67108864)) >>> 0;
+		} else if (_ref === 8192) {
+			fs.mode = (fs.mode | (69206016)) >>> 0;
+		} else if (_ref === 16384) {
+			fs.mode = (fs.mode | (2147483648)) >>> 0;
+		} else if (_ref === 4096) {
+			fs.mode = (fs.mode | (33554432)) >>> 0;
+		} else if (_ref === 40960) {
+			fs.mode = (fs.mode | (134217728)) >>> 0;
+		} else if (_ref === 32768) {
+		} else if (_ref === 49152) {
+			fs.mode = (fs.mode | (16777216)) >>> 0;
 		}
-		c = path.charCodeAt(0);
-		if ((path.charCodeAt(1) === 58) && (48 <= c && c <= 57 || 97 <= c && c <= 122 || 65 <= c && c <= 90)) {
-			v = path.substring(0, 2);
-			return v;
+		if (!((((st.Mode & 1024) >>> 0) === 0))) {
+			fs.mode = (fs.mode | (4194304)) >>> 0;
 		}
-		l = path.length;
-		if (l >= 5 && IsPathSeparator(path.charCodeAt(0)) && IsPathSeparator(path.charCodeAt(1)) && !IsPathSeparator(path.charCodeAt(2)) && !((path.charCodeAt(2) === 46))) {
-			n = 3;
-			while (true) {
-				if (!(n < (l - 1 >> 0))) { break; }
-				if (IsPathSeparator(path.charCodeAt(n))) {
-					n = n + (1) >> 0;
-					if (!IsPathSeparator(path.charCodeAt(n))) {
-						if (path.charCodeAt(n) === 46) {
-							break;
-						}
-						while (true) {
-							if (!(n < l)) { break; }
-							if (IsPathSeparator(path.charCodeAt(n))) {
-								break;
-							}
-							n = n + (1) >> 0;
-						}
-						v = path.substring(0, n);
-						return v;
-					}
-					break;
-				}
-				n = n + (1) >> 0;
-			}
+		if (!((((st.Mode & 2048) >>> 0) === 0))) {
+			fs.mode = (fs.mode | (8388608)) >>> 0;
 		}
-		v = "";
-		return v;
+		if (!((((st.Mode & 512) >>> 0) === 0))) {
+			fs.mode = (fs.mode | (1048576)) >>> 0;
+		}
+		return fs;
+	};
+	timespecToTime = function(ts) {
+		var $ptr, ts;
+		ts = $clone(ts, syscall.Timespec);
+		return time.Unix(ts.Sec, ts.Nsec);
 	};
 	FileMode.prototype.String = function() {
 		var $ptr, _i, _i$1, _ref, _ref$1, _rune, _rune$1, buf, c, c$1, i, i$1, m, w, y, y$1;
@@ -7696,7 +6776,7 @@ $packages["os"] = (function() {
 			w = w + (1) >> 0;
 			_i$1 += _rune$1[1];
 		}
-		return $bytesToString($subslice(new sliceType$2(buf), 0, w));
+		return $bytesToString($subslice(new sliceType$1(buf), 0, w));
 	};
 	$ptrType(FileMode).prototype.String = function() { return new FileMode(this.$get()).String(); };
 	FileMode.prototype.IsDir = function() {
@@ -7730,38 +6810,21 @@ $packages["os"] = (function() {
 	};
 	fileStat.prototype.IsDir = function() { return this.$val.IsDir(); };
 	fileStat.ptr.prototype.Size = function() {
-		var $ptr, fs, x, x$1;
+		var $ptr, fs;
 		fs = this;
-		return (x = $shiftLeft64(new $Int64(0, fs.sys.FileSizeHigh), 32), x$1 = new $Int64(0, fs.sys.FileSizeLow), new $Int64(x.$high + x$1.$high, x.$low + x$1.$low));
+		return fs.size;
 	};
 	fileStat.prototype.Size = function() { return this.$val.Size(); };
 	fileStat.ptr.prototype.Mode = function() {
-		var $ptr, fs, m;
-		m = 0;
+		var $ptr, fs;
 		fs = this;
-		if (fs === devNullStat) {
-			m = 69206454;
-			return m;
-		}
-		if (!((((fs.sys.FileAttributes & 16) >>> 0) === 0))) {
-			m = (m | (2147483721)) >>> 0;
-		}
-		if (!((((fs.sys.FileAttributes & 1) >>> 0) === 0))) {
-			m = (m | (292)) >>> 0;
-		} else {
-			m = (m | (438)) >>> 0;
-		}
-		if (!((((fs.sys.FileAttributes & 1024) >>> 0) === 0))) {
-			m = (m | (134217728)) >>> 0;
-		}
-		m = m;
-		return m;
+		return fs.mode;
 	};
 	fileStat.prototype.Mode = function() { return this.$val.Mode(); };
 	fileStat.ptr.prototype.ModTime = function() {
 		var $ptr, fs;
 		fs = this;
-		return time.Unix(new $Int64(0, 0), fs.sys.LastWriteTime.Nanoseconds());
+		return fs.modTime;
 	};
 	fileStat.prototype.ModTime = function() { return this.$val.ModTime(); };
 	fileStat.ptr.prototype.Sys = function() {
@@ -7770,19 +6833,21 @@ $packages["os"] = (function() {
 		return fs.sys;
 	};
 	fileStat.prototype.Sys = function() { return this.$val.Sys(); };
-	ptrType$2.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
-	ptrType$17.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
-	ptrType$1.methods = [{prop: "readdirnames", name: "readdirnames", pkg: "os", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "Readdir", name: "Readdir", pkg: "", typ: $funcType([$Int], [sliceType$1, $error], false)}, {prop: "Readdirnames", name: "Readdirnames", pkg: "", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "ReadAt", name: "ReadAt", pkg: "", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "Write", name: "Write", pkg: "", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "WriteAt", name: "WriteAt", pkg: "", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "Seek", name: "Seek", pkg: "", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}, {prop: "WriteString", name: "WriteString", pkg: "", typ: $funcType([$String], [$Int, $error], false)}, {prop: "Chdir", name: "Chdir", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Chmod", name: "Chmod", pkg: "", typ: $funcType([FileMode], [$error], false)}, {prop: "Chown", name: "Chown", pkg: "", typ: $funcType([$Int, $Int], [$error], false)}, {prop: "Truncate", name: "Truncate", pkg: "", typ: $funcType([$Int64], [$error], false)}, {prop: "Sync", name: "Sync", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Fd", name: "Fd", pkg: "", typ: $funcType([], [$Uintptr], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "readdir", name: "readdir", pkg: "os", typ: $funcType([$Int], [sliceType$1, $error], false)}, {prop: "readConsole", name: "readConsole", pkg: "os", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "read", name: "read", pkg: "os", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "pread", name: "pread", pkg: "os", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "writeConsole", name: "writeConsole", pkg: "os", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "write", name: "write", pkg: "os", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "pwrite", name: "pwrite", pkg: "os", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "seek", name: "seek", pkg: "os", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}, {prop: "Stat", name: "Stat", pkg: "", typ: $funcType([], [FileInfo, $error], false)}];
-	ptrType$11.methods = [{prop: "isdir", name: "isdir", pkg: "os", typ: $funcType([], [$Bool], false)}, {prop: "close", name: "close", pkg: "os", typ: $funcType([], [$error], false)}];
+	ptrType$3.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
+	ptrType$15.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
+	ptrType$4.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
+	ptrType$2.methods = [{prop: "readdirnames", name: "readdirnames", pkg: "os", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "Readdir", name: "Readdir", pkg: "", typ: $funcType([$Int], [sliceType$2, $error], false)}, {prop: "Readdirnames", name: "Readdirnames", pkg: "", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "ReadAt", name: "ReadAt", pkg: "", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "Write", name: "Write", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "WriteAt", name: "WriteAt", pkg: "", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "Seek", name: "Seek", pkg: "", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}, {prop: "WriteString", name: "WriteString", pkg: "", typ: $funcType([$String], [$Int, $error], false)}, {prop: "Chdir", name: "Chdir", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Chmod", name: "Chmod", pkg: "", typ: $funcType([FileMode], [$error], false)}, {prop: "Chown", name: "Chown", pkg: "", typ: $funcType([$Int, $Int], [$error], false)}, {prop: "Truncate", name: "Truncate", pkg: "", typ: $funcType([$Int64], [$error], false)}, {prop: "Sync", name: "Sync", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Fd", name: "Fd", pkg: "", typ: $funcType([], [$Uintptr], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Stat", name: "Stat", pkg: "", typ: $funcType([], [FileInfo, $error], false)}, {prop: "readdir", name: "readdir", pkg: "os", typ: $funcType([$Int], [sliceType$2, $error], false)}, {prop: "read", name: "read", pkg: "os", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "pread", name: "pread", pkg: "os", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "write", name: "write", pkg: "os", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "pwrite", name: "pwrite", pkg: "os", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "seek", name: "seek", pkg: "os", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}];
+	ptrType$11.methods = [{prop: "close", name: "close", pkg: "os", typ: $funcType([], [$error], false)}];
 	FileMode.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "IsDir", name: "IsDir", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "IsRegular", name: "IsRegular", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Perm", name: "Perm", pkg: "", typ: $funcType([], [FileMode], false)}];
-	ptrType$14.methods = [{prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "IsDir", name: "IsDir", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Size", name: "Size", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Mode", name: "Mode", pkg: "", typ: $funcType([], [FileMode], false)}, {prop: "ModTime", name: "ModTime", pkg: "", typ: $funcType([], [time.Time], false)}, {prop: "Sys", name: "Sys", pkg: "", typ: $funcType([], [$emptyInterface], false)}, {prop: "loadFileId", name: "loadFileId", pkg: "os", typ: $funcType([], [$error], false)}];
+	ptrType$14.methods = [{prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "IsDir", name: "IsDir", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Size", name: "Size", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Mode", name: "Mode", pkg: "", typ: $funcType([], [FileMode], false)}, {prop: "ModTime", name: "ModTime", pkg: "", typ: $funcType([], [time.Time], false)}, {prop: "Sys", name: "Sys", pkg: "", typ: $funcType([], [$emptyInterface], false)}];
 	PathError.init([{prop: "Op", name: "Op", pkg: "", typ: $String, tag: ""}, {prop: "Path", name: "Path", pkg: "", typ: $String, tag: ""}, {prop: "Err", name: "Err", pkg: "", typ: $error, tag: ""}]);
 	SyscallError.init([{prop: "Syscall", name: "Syscall", pkg: "", typ: $String, tag: ""}, {prop: "Err", name: "Err", pkg: "", typ: $error, tag: ""}]);
+	LinkError.init([{prop: "Op", name: "Op", pkg: "", typ: $String, tag: ""}, {prop: "Old", name: "Old", pkg: "", typ: $String, tag: ""}, {prop: "New", name: "New", pkg: "", typ: $String, tag: ""}, {prop: "Err", name: "Err", pkg: "", typ: $error, tag: ""}]);
 	File.init([{prop: "file", name: "", pkg: "os", typ: ptrType$11, tag: ""}]);
-	file.init([{prop: "fd", name: "fd", pkg: "os", typ: syscall.Handle, tag: ""}, {prop: "name", name: "name", pkg: "os", typ: $String, tag: ""}, {prop: "dirinfo", name: "dirinfo", pkg: "os", typ: ptrType$10, tag: ""}, {prop: "l", name: "l", pkg: "os", typ: sync.Mutex, tag: ""}, {prop: "isConsole", name: "isConsole", pkg: "os", typ: $Bool, tag: ""}, {prop: "lastbits", name: "lastbits", pkg: "os", typ: sliceType$2, tag: ""}, {prop: "readbuf", name: "readbuf", pkg: "os", typ: sliceType$7, tag: ""}]);
-	dirInfo.init([{prop: "data", name: "data", pkg: "os", typ: syscall.Win32finddata, tag: ""}, {prop: "needdata", name: "needdata", pkg: "os", typ: $Bool, tag: ""}, {prop: "path", name: "path", pkg: "os", typ: $String, tag: ""}, {prop: "isempty", name: "isempty", pkg: "os", typ: $Bool, tag: ""}]);
+	file.init([{prop: "fd", name: "fd", pkg: "os", typ: $Int, tag: ""}, {prop: "name", name: "name", pkg: "os", typ: $String, tag: ""}, {prop: "dirinfo", name: "dirinfo", pkg: "os", typ: ptrType, tag: ""}, {prop: "nepipe", name: "nepipe", pkg: "os", typ: $Int32, tag: ""}]);
+	dirInfo.init([{prop: "buf", name: "buf", pkg: "os", typ: sliceType$1, tag: ""}, {prop: "nbuf", name: "nbuf", pkg: "os", typ: $Int, tag: ""}, {prop: "bufp", name: "bufp", pkg: "os", typ: $Int, tag: ""}]);
 	FileInfo.init([{prop: "IsDir", name: "IsDir", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "ModTime", name: "ModTime", pkg: "", typ: $funcType([], [time.Time], false)}, {prop: "Mode", name: "Mode", pkg: "", typ: $funcType([], [FileMode], false)}, {prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Size", name: "Size", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Sys", name: "Sys", pkg: "", typ: $funcType([], [$emptyInterface], false)}]);
-	fileStat.init([{prop: "name", name: "name", pkg: "os", typ: $String, tag: ""}, {prop: "sys", name: "sys", pkg: "os", typ: syscall.Win32FileAttributeData, tag: ""}, {prop: "Mutex", name: "", pkg: "", typ: sync.Mutex, tag: ""}, {prop: "path", name: "path", pkg: "os", typ: $String, tag: ""}, {prop: "vol", name: "vol", pkg: "os", typ: $Uint32, tag: ""}, {prop: "idxhi", name: "idxhi", pkg: "os", typ: $Uint32, tag: ""}, {prop: "idxlo", name: "idxlo", pkg: "os", typ: $Uint32, tag: ""}]);
+	fileStat.init([{prop: "name", name: "name", pkg: "os", typ: $String, tag: ""}, {prop: "size", name: "size", pkg: "os", typ: $Int64, tag: ""}, {prop: "mode", name: "mode", pkg: "os", typ: FileMode, tag: ""}, {prop: "modTime", name: "modTime", pkg: "os", typ: time.Time, tag: ""}, {prop: "sys", name: "sys", pkg: "os", typ: $emptyInterface, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -7794,20 +6859,18 @@ $packages["os"] = (function() {
 		$r = atomic.$init(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = syscall.$init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = time.$init(); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = utf16.$init(); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = utf8.$init(); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$pkg.Args = sliceType.nil;
 		$pkg.ErrInvalid = errors.New("invalid argument");
 		$pkg.ErrPermission = errors.New("permission denied");
 		$pkg.ErrExist = errors.New("file already exists");
 		$pkg.ErrNotExist = errors.New("file does not exist");
+		errFinished = errors.New("os: process already finished");
 		$pkg.Stdin = NewFile((syscall.Stdin >>> 0), "/dev/stdin");
 		$pkg.Stdout = NewFile((syscall.Stdout >>> 0), "/dev/stdout");
 		$pkg.Stderr = NewFile((syscall.Stderr >>> 0), "/dev/stderr");
-		devNullStat = new fileStat.ptr("NUL", new syscall.Win32FileAttributeData.ptr(), new sync.Mutex.ptr(), "", 0, 0, 0);
+		lstat = Lstat;
 		init();
 		init$1();
-		init$2();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
@@ -9941,10 +9004,10 @@ $packages["reflect"] = (function() {
 		if (str === "") {
 			return ptrType$5.nil;
 		}
-		_tuple = (_entry = stringPtrMap[$String.keyFor(str)], _entry !== undefined ? [_entry.v, true] : [ptrType$5.nil, false]); ptr = _tuple[0]; ok = _tuple[1];
+		_tuple = (_entry = stringPtrMap[str], _entry !== undefined ? [_entry.v, true] : [ptrType$5.nil, false]); ptr = _tuple[0]; ok = _tuple[1];
 		if (!ok) {
 			ptr = (str_ptr || (str_ptr = new ptrType$5(function() { return str; }, function($v) { str = $v; })));
-			_key = str; (stringPtrMap || $throwRuntimeError("assignment to entry in nil map"))[$String.keyFor(_key)] = { k: _key, v: ptr };
+			_key = str; (stringPtrMap || $throwRuntimeError("assignment to entry in nil map"))[_key] = { k: _key, v: ptr };
 		}
 		return ptr;
 	};
@@ -10804,22 +9867,22 @@ $packages["reflect"] = (function() {
 			if (i[0] < 0 || i[0] > (tt.len >> 0)) {
 				$panic(new $String("reflect: array index out of range"));
 			}
-			typ$1[0] = tt.elem;
+			typ[0] = tt.elem;
 			fl = (v.flag & 224) >>> 0;
-			fl = (fl | ((typ$1[0].Kind() >>> 0))) >>> 0;
-			a$1[0] = v.ptr;
-			/* */ if (!((((fl & 64) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { $s = 6; continue; }
+			fl = (fl | ((typ[0].Kind() >>> 0))) >>> 0;
+			a[0] = v.ptr;
+			/* */ if (!((((fl & 64) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { $s = 6; continue; }
 			/* */ $s = 7; continue;
-			/* if (!((((fl & 64) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { */ case 6:
-				return new Value.ptr(typ$1[0], new (jsType(PtrTo(typ$1[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
+			/* if (!((((fl & 64) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { */ case 6:
+				return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
 					var $ptr;
-					return wrapJsObject(typ$1[0], a$1[0][i[0]]);
+					return wrapJsObject(typ[0], a[0][i[0]]);
 				}; })(a, a$1, c, i, typ, typ$1), (function(a, a$1, c, i, typ, typ$1) { return function(x) {
 					var $ptr, x;
-					a$1[0][i[0]] = unwrapJsObject(typ$1[0], x);
+					a[0][i[0]] = unwrapJsObject(typ[0], x);
 				}; })(a, a$1, c, i, typ, typ$1)), fl);
 			/* } */ case 7:
-			_r = makeValue(typ$1[0], wrapJsObject(typ$1[0], a$1[0][i[0]]), fl); /* */ $s = 8; case 8: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_r = makeValue(typ[0], wrapJsObject(typ[0], a[0][i[0]]), fl); /* */ $s = 8; case 8: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			return _r;
 			$s = 5; continue;
 		/* } else if (_ref === 23) { */ case 2:
@@ -10828,23 +9891,23 @@ $packages["reflect"] = (function() {
 				$panic(new $String("reflect: slice index out of range"));
 			}
 			tt$1 = v.typ.kindType;
-			typ[0] = tt$1.elem;
+			typ$1[0] = tt$1.elem;
 			fl$1 = (192 | ((v.flag & 32) >>> 0)) >>> 0;
-			fl$1 = (fl$1 | ((typ[0].Kind() >>> 0))) >>> 0;
+			fl$1 = (fl$1 | ((typ$1[0].Kind() >>> 0))) >>> 0;
 			i[0] = i[0] + (($parseInt(s.$offset) >> 0)) >> 0;
-			a[0] = s.$array;
-			/* */ if (!((((fl$1 & 64) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { $s = 9; continue; }
+			a$1[0] = s.$array;
+			/* */ if (!((((fl$1 & 64) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { $s = 9; continue; }
 			/* */ $s = 10; continue;
-			/* if (!((((fl$1 & 64) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { */ case 9:
-				return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
+			/* if (!((((fl$1 & 64) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { */ case 9:
+				return new Value.ptr(typ$1[0], new (jsType(PtrTo(typ$1[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
 					var $ptr;
-					return wrapJsObject(typ[0], a[0][i[0]]);
+					return wrapJsObject(typ$1[0], a$1[0][i[0]]);
 				}; })(a, a$1, c, i, typ, typ$1), (function(a, a$1, c, i, typ, typ$1) { return function(x) {
 					var $ptr, x;
-					a[0][i[0]] = unwrapJsObject(typ[0], x);
+					a$1[0][i[0]] = unwrapJsObject(typ$1[0], x);
 				}; })(a, a$1, c, i, typ, typ$1)), fl$1);
 			/* } */ case 10:
-			_r$1 = makeValue(typ[0], wrapJsObject(typ[0], a[0][i[0]]), fl$1); /* */ $s = 11; case 11: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			_r$1 = makeValue(typ$1[0], wrapJsObject(typ$1[0], a$1[0][i[0]]), fl$1); /* */ $s = 11; case 11: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 			return _r$1;
 			$s = 5; continue;
 		/* } else if (_ref === 24) { */ case 3:
@@ -11646,13 +10709,13 @@ $packages["reflect"] = (function() {
 				/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 4; continue; }
 				scan = $clone(((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]), fieldScan);
 				t$1 = scan.typ;
-				/* */ if ((_entry = visited[ptrType$13.keyFor(t$1)], _entry !== undefined ? _entry.v : false)) { $s = 5; continue; }
+				/* */ if ((_entry = visited[t$1.$key()], _entry !== undefined ? _entry.v : false)) { $s = 5; continue; }
 				/* */ $s = 6; continue;
-				/* if ((_entry = visited[ptrType$13.keyFor(t$1)], _entry !== undefined ? _entry.v : false)) { */ case 5:
+				/* if ((_entry = visited[t$1.$key()], _entry !== undefined ? _entry.v : false)) { */ case 5:
 					_i++;
 					/* continue; */ $s = 3; continue;
 				/* } */ case 6:
-				_key$1 = t$1; (visited || $throwRuntimeError("assignment to entry in nil map"))[ptrType$13.keyFor(_key$1)] = { k: _key$1, v: true };
+				_key$1 = t$1; (visited || $throwRuntimeError("assignment to entry in nil map"))[_key$1.$key()] = { k: _key$1, v: true };
 				_ref$1 = t$1.fields;
 				_i$1 = 0;
 				/* while (true) { */ case 7:
@@ -11680,7 +10743,7 @@ $packages["reflect"] = (function() {
 					/* */ if (_r$1) { $s = 15; continue; }
 					/* */ $s = 16; continue;
 					/* if (_r$1) { */ case 15:
-						if ((_entry$1 = count[ptrType$13.keyFor(t$1)], _entry$1 !== undefined ? _entry$1.v : 0) > 1 || ok) {
+						if ((_entry$1 = count[t$1.$key()], _entry$1 !== undefined ? _entry$1.v : 0) > 1 || ok) {
 							_tmp$2 = new StructField.ptr("", "", $ifaceNil, "", 0, sliceType$11.nil, false); _tmp$3 = false; $copy(result, _tmp$2, StructField); ok = _tmp$3;
 							return [result, ok];
 						}
@@ -11698,17 +10761,17 @@ $packages["reflect"] = (function() {
 						/* continue; */ $s = 7; continue;
 					}
 					styp = ntyp.kindType;
-					if ((_entry$2 = nextCount[ptrType$13.keyFor(styp)], _entry$2 !== undefined ? _entry$2.v : 0) > 0) {
-						_key$2 = styp; (nextCount || $throwRuntimeError("assignment to entry in nil map"))[ptrType$13.keyFor(_key$2)] = { k: _key$2, v: 2 };
+					if ((_entry$2 = nextCount[styp.$key()], _entry$2 !== undefined ? _entry$2.v : 0) > 0) {
+						_key$2 = styp; (nextCount || $throwRuntimeError("assignment to entry in nil map"))[_key$2.$key()] = { k: _key$2, v: 2 };
 						_i$1++;
 						/* continue; */ $s = 7; continue;
 					}
 					if (nextCount === false) {
 						nextCount = (_map$1 = new $Map(), _map$1);
 					}
-					_key$4 = styp; (nextCount || $throwRuntimeError("assignment to entry in nil map"))[ptrType$13.keyFor(_key$4)] = { k: _key$4, v: 1 };
-					if ((_entry$3 = count[ptrType$13.keyFor(t$1)], _entry$3 !== undefined ? _entry$3.v : 0) > 1) {
-						_key$5 = styp; (nextCount || $throwRuntimeError("assignment to entry in nil map"))[ptrType$13.keyFor(_key$5)] = { k: _key$5, v: 2 };
+					_key$4 = styp; (nextCount || $throwRuntimeError("assignment to entry in nil map"))[_key$4.$key()] = { k: _key$4, v: 1 };
+					if ((_entry$3 = count[t$1.$key()], _entry$3 !== undefined ? _entry$3.v : 0) > 1) {
+						_key$5 = styp; (nextCount || $throwRuntimeError("assignment to entry in nil map"))[_key$5.$key()] = { k: _key$5, v: 2 };
 					}
 					index = sliceType$11.nil;
 					index = $appendSlice(index, scan.index);
@@ -13547,7 +12610,7 @@ $packages["fmt"] = (function() {
 				buf = $makeSlice(sliceType, width);
 			}
 		}
-		negative = signedness && (a.$high < 0 || (a.$high === 0 && a.$low < 0));
+		negative = signedness === true && (a.$high < 0 || (a.$high === 0 && a.$low < 0));
 		if (negative) {
 			a = new $Int64(-a.$high, -a.$low);
 		}
@@ -19575,7 +18638,7 @@ $packages["main"] = (function() {
 		c[0] = _r;
 		c[0].App.Runtime.OnLaunched((function(c) { return function(data) {
 			var $ptr, _key, _key$1, _map, _map$1, data;
-			c[0].App.Window.CreateM("app.html", (_map = new $Map(), _key = "bounds", _map[$String.keyFor(_key)] = { k: _key, v: new chrome.Object((_map$1 = new $Map(), _key$1 = "width", _map$1[$String.keyFor(_key$1)] = { k: _key$1, v: new $Int(400) }, _key$1 = "height", _map$1[$String.keyFor(_key$1)] = { k: _key$1, v: new $Int(500) }, _map$1)) }, _map), (function(c) { return function(param) {
+			c[0].App.Window.CreateM("app.html", (_map = new $Map(), _key = "bounds", _map[_key] = { k: _key, v: new chrome.Object((_map$1 = new $Map(), _key$1 = "width", _map$1[_key$1] = { k: _key$1, v: new $Int(400) }, _key$1 = "height", _map$1[_key$1] = { k: _key$1, v: new $Int(500) }, _map$1)) }, _map), (function(c) { return function(param) {
 				var $ptr, param;
 			}; })(c));
 		}; })(c));
