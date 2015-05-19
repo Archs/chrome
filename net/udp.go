@@ -6,6 +6,7 @@ import (
 	"github.com/Archs/chrome/net/sockets"
 	"github.com/Archs/chrome/net/sockets/udp"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -47,17 +48,50 @@ type UDPConn struct {
 func newUDPConn(socketId int) *UDPConn {
 	// println("creating conn, id:", socketId)
 	conn := &UDPConn{
-		socketId: socketId,
-		ch:       make(chan *udpPacket, 10),
+		socketId:     socketId,
+		ch:           make(chan *udpPacket, 10),
+		readDeadline: time.Time{},
 	}
 	udpMap[socketId] = conn
 	// println("c udpMap length:", len(udpMap))
 	return conn
 }
 
-// DialUDP connects to the remote address raddr on the network net, which must be "udp", "udp4", or "udp6". If laddr is not nil, it is used as the local address for the connection.
-func DialUDP(net string, laddr, raddr *net.UDPAddr) (*UDPConn, error) {
-	return nil, nil
+// DialUDP connects to the remote address raddr on the network net,
+// which must be "udp", "udp4", or "udp6".
+// If laddr is not nil, it is used as the local address for the connection.
+func DialUDP(network string, laddr, raddr *net.UDPAddr) (*UDPConn, error) {
+	if !strings.HasPrefix(network, "udp") || len(network) > 4 {
+		return nil, errors.New("network not supported")
+	}
+	var err error
+	var conn *UDPConn
+	sig := make(chan struct{})
+	socketId := 0
+	udp.CreateEx(func(ci *sockets.CreateInfo) {
+		socketId = ci.SocketId
+		// default bind to local free port, by using 0
+		if laddr == nil {
+			laddr, err = net.ResolveUDPAddr(network, ":0")
+		}
+		if err != nil {
+			close(sig)
+			return
+		}
+		// bind to local address
+		udp.Bind(socketId, laddr.IP.String(), laddr.Port, func(result int) {
+			if result < 0 {
+				err = fmt.Errorf("udp bind local address failed:%d", result)
+			} else {
+				conn = newUDPConn(socketId)
+				conn.laddr = laddr
+				conn.raddr = raddr
+			}
+			close(sig)
+		})
+	})
+	<-sig
+	return conn, err
 }
 
 // ListenMulticastUDP listens for incoming multicast UDP packets addressed to the group address gaddr on ifi, which specifies the interface to join. ListenMulticastUDP uses default multicast interface if ifi is nil.
@@ -65,9 +99,13 @@ func DialUDP(net string, laddr, raddr *net.UDPAddr) (*UDPConn, error) {
 // 	reutrn nil, nil
 // }
 
-// ListenUDP listens for incoming UDP packets addressed to the local address laddr. Net must be "udp", "udp4", or "udp6". If laddr has a port of 0, ListenUDP will choose an available port. The LocalAddr method of the returned UDPConn can be used to discover the port. The returned connection's ReadFrom and WriteTo methods can be used to receive and send UDP packets with per-packet addressing.
+// ListenUDP listens for incoming UDP packets addressed to the local address laddr.
+// Net must be "udp", "udp4", or "udp6".
+// If laddr has a port of 0, ListenUDP will choose an available port.
+// The LocalAddr method of the returned UDPConn can be used to discover the port.
+// The returned connection's ReadFrom and WriteTo methods can be used to receive and send UDP packets with per-packet addressing.
 func ListenUDP(net string, laddr *net.UDPAddr) (*UDPConn, error) {
-	return nil, nil
+	return DialUDP(net, laddr, nil)
 }
 
 func (u *UDPConn) ReadFrom(b []byte) (int, net.Addr, error) {
