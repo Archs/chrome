@@ -74,8 +74,12 @@ func (u *UDPConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	for {
 		select {
 		case p := <-u.ch:
-			copy(b, p.data)
-			return len(p.data), p.remoteAddr, nil
+			n := len(b)
+			if len(p.data) < n {
+				n = len(p.data)
+			}
+			copy(b, p.data[:n])
+			return n, p.remoteAddr, nil
 		case <-time.Tick(10 * time.Microsecond):
 			if !u.readDeadline.IsZero() && time.Now().After(u.readDeadline) {
 				return 0, nil, &timeoutError{
@@ -90,6 +94,7 @@ func (u *UDPConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	}
 }
 
+// TODO add the ablity to read full of b, maybe using a double list
 func (c *UDPConn) Read(b []byte) error {
 	_, _, err := c.ReadFrom(b)
 	return err
