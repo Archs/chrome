@@ -9,24 +9,12 @@
       "scripts": ["background.js"]
     }
   },
-  "icons": { "16": "icon.png" },
+  "icons": {
+    "16": "icon.png"
+  },
   "permissions": [
-    "webNavigation",
     "storage",
-    "tabs",
-    "privacy",
-    "cookies",
     "http://*/*",
-    "contentSettings",
-    "alarms",
-    "activeTab",
-    "tabs",
-    "bookmarks",
-    "browsingData",
-    "fontSettings",
-    "history"
+    "alarms"
   ],
-  "web_accessible_resources": [
-   	"*"
-  ]
 }
