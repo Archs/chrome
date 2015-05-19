@@ -18,7 +18,7 @@ func main() {
 	// 	"out":       out,
 	// 	"bookmarks": bmks,
 	// }
-	bookmarks.GetTree(func(bs []bookmarks.TreeNode) {
+	bookmarks.GetTree(func(bs []*bookmarks.TreeNode) {
 		bs[0].Title = "Root"
 		vm := ko.Mapping().FromJS(bs[0])
 		vm.Call("title", "title change after mapping")
