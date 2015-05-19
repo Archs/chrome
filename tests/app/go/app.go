@@ -83,7 +83,7 @@ func main() {
 	})
 
 	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
-		log.Printf("tcp receive: %+v\n", ri)
+		println("tcp receive: ", *ri)
 		appendToOut("server receive:" + string(ri.Data))
 	})
 

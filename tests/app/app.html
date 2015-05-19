@@ -12,7 +12,9 @@
         <input data-bind="value: input">    
         <button data-bind="click: send">Send</button>
     </div>
-    <div data-bind="text: output"></div>
+    <div>
+        <textarea data-bind="value: output"></textarea>
+    </div>
     <div id="qunit"></div>
     <div id="qunit-fixture"></div>
     <script src="resources/jquery-2.1.1.min.js"></script>
