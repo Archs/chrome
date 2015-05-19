@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/Archs/chrome/net/sockets"
-	"github.com/Archs/chrome/net/sockets/tcp"
-	"github.com/Archs/chrome/net/sockets/tcpserver"
+	"github.com/Archs/chrome/sockets"
+	"github.com/Archs/chrome/sockets/tcp"
+	"github.com/Archs/chrome/sockets/tcpserver"
 	"net"
 	"time"
 )

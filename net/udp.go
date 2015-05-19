@@ -3,8 +3,8 @@ package net
 import (
 	"errors"
 	"fmt"
-	"github.com/Archs/chrome/net/sockets"
-	"github.com/Archs/chrome/net/sockets/udp"
+	"github.com/Archs/chrome/sockets"
+	"github.com/Archs/chrome/sockets/udp"
 	"net"
 	"strings"
 	"time"
