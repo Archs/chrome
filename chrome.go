@@ -2,7 +2,15 @@ package chrome
 
 import "github.com/gopherjs/gopherjs/js"
 
+var (
+	chrome = js.Global.Get("chrome")
+)
+
 type Object map[string]interface{}
+
+func Get(key string) *js.Object {
+	return chrome.Get(key)
+}
 
 type Chrome struct {
 	o                  js.Object
