@@ -1,12 +1,13 @@
-package chrome
+package runtime
 
 import (
+	"github.com/Archs/chrome"
 	"github.com/gopherjs/gopherjs/js"
 )
 
-type AppRuntime struct {
-	o *js.Object
-}
+var (
+	runtime = chrome.Get("app").Get("runtime")
+)
 
 type EmbedRequest struct {
 	*js.Object
@@ -32,8 +33,8 @@ type EmbedRequest struct {
 
 // onEmbedRequested Fired when an embedding app requests to embed this app.
 // This event is only available on dev channel with the flag --enable-app-view.
-func (a *AppRuntime) OnEmbedRequested(callback func(*EmbedRequest)) {
-	a.o.Get("onEmbedRequested").Call("addListener", callback)
+func OnEmbedRequested(callback func(*EmbedRequest)) {
+	runtime.Get("onEmbedRequested").Call("addListener", callback)
 }
 
 type LaunchDataSource string
@@ -99,8 +100,8 @@ type LaunchData struct {
 }
 
 // onLaunched Fired when an app is launched from the launcher.
-func (a *AppRuntime) OnLaunched(callback func(*LaunchData)) {
-	a.o.Get("onLaunched").Call("addListener", callback)
+func OnLaunched(callback func(*LaunchData)) {
+	runtime.Get("onLaunched").Call("addListener", callback)
 }
 
 // Since Chrome 24.
@@ -109,6 +110,6 @@ func (a *AppRuntime) OnLaunched(callback func(*LaunchData)) {
 // or when apps have been requested to restart from their previous state for other reasons
 // (e.g. when the user revokes access to an app's retained files the runtime will restart the app).
 // In these situations if apps do not have an onRestarted handler they will be sent an onLaunched event instead.
-func (a *AppRuntime) OnRestarted(callback func()) {
-	a.o.Get("onRestarted").Call("addListener", callback)
+func OnRestarted(callback func()) {
+	runtime.Get("onRestarted").Call("addListener", callback)
 }
