@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+
+  "name": "Chrome App Gopherjs Binding Tests",
+  "description": "This extension tests the Chrome App Gopherjs Bindings",
+  "version": "1.0",
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "icons": { "16": "icon.png" },
+  "permissions": [
+    "webNavigation",
+    "storage",
+    "tabs",
+    "privacy",
+    "cookies",
+    "http://*/*",
+    "contentSettings",
+    "alarms",
+    "activeTab",
+    "tabs",
+    "bookmarks",
+    "browsingData",
+    "fontSettings",
+    "history"
+  ],
+  "web_accessible_resources": [
+   	"*"
+  ]
+}
