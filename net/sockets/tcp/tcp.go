@@ -142,7 +142,8 @@ type ReceiveInfo struct {
 	SocketId int `js:"socketId"`
 	// ArrayBuffer	data
 	// The data received, with a maxium size of bufferSize.
-	Data []byte `js:"data"`
+	dat  *js.Object `js:"data"`
+	Data []byte
 }
 
 // onReceive
@@ -165,7 +166,10 @@ type ReceiveInfo struct {
 // ArrayBuffer	data
 // The data received, with a maxium size of bufferSize.
 func OnReceive(callback func(*ReceiveInfo)) {
-	tcp.Get("onReceive").Call("addListener", callback)
+	tcp.Get("onReceive").Call("addListener", func(ri *ReceiveInfo) {
+		ri.Data = js.Global.Get("Uint8Array").New(ri.dat).Interface().([]byte)
+		callback(ri)
+	})
 }
 
 type ReceiveError struct {
