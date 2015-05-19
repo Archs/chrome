@@ -7,12 +7,28 @@ import (
 	"github.com/Archs/chrome/net/sockets/tcp"
 	"github.com/Archs/chrome/net/sockets/tcpserver"
 	"net"
+	"strings"
 	"time"
 )
 
 type Conn net.Conn
 
+// Dial connects to the address on the named network.
+//
+// Known networks are "tcp", "tcp4" (IPv4-only), "tcp6" (IPv6-only), "udp", "udp4" (IPv4-only), "udp6" (IPv6-only).
+//
+// For TCP and UDP networks, addresses have the form host:port. If host is a literal IPv6 address it must be enclosed in square brackets as in "[::1]:80" or "[ipv6-host%zone]:80". The functions JoinHostPort and SplitHostPort manipulate addresses in this form.
 func Dial(network, address string) (net.Conn, error) {
+	if len(network) > 4 || len(network) == 0 {
+		return nil, errors.New("bad network")
+	}
+	if strings.HasPrefix(network, "udp") {
+		raddr, err := net.ResolveUDPAddr(network, address)
+		if err != nil {
+			return nil, err
+		}
+		return DialUDP(network, nil, raddr)
+	}
 	addr, err := net.ResolveTCPAddr(network, address)
 	if err != nil {
 		return nil, err
