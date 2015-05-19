@@ -133,9 +133,9 @@ func (u *UDPConn) ReadFrom(b []byte) (int, net.Addr, error) {
 }
 
 // TODO add the ablity to read full of b, maybe using a double list
-func (c *UDPConn) Read(b []byte) error {
-	_, _, err := c.ReadFrom(b)
-	return err
+func (c *UDPConn) Read(b []byte) (int, error) {
+	n, _, err := c.ReadFrom(b)
+	return n, err
 }
 
 func (c *UDPConn) WriteTo(b []byte, addr net.Addr) (int, error) {
