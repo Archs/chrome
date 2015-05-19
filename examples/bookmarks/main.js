@@ -458,6 +458,16 @@ var $synthesizeMethods = function() {
   $methodSynthesizers = null;
 };
 
+var $ifaceKeyFor = function(x) {
+  if (x === $ifaceNil) {
+    return 'nil';
+  }
+  var c = x.constructor;
+  return c.string + '$' + c.keyFor(x.$val);
+};
+
+var $identity = function(x) { return x; };
+
 var $newType = function(size, kind, string, name, pkg, constructor) {
   var typ;
   switch(kind) {
@@ -474,13 +484,12 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
   case $kindString:
   case $kindUnsafePointer:
     typ = function(v) { this.$val = v; };
-    typ.prototype.$key = function() { return string + "$" + this.$val; };
     break;
 
   case $kindFloat32:
   case $kindFloat64:
     typ = function(v) { this.$val = v; };
-    typ.prototype.$key = function() { return string + "$" + $floatKey(this.$val); };
+    typ.keyFor = function(x) { return $floatKey(x); };
     break;
 
   case $kindInt64:
@@ -489,7 +498,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$low = low >>> 0;
       this.$val = this;
     };
-    typ.prototype.$key = function() { return string + "$" + this.$high + "$" + this.$low; };
+    typ.keyFor = function(x) { return x.$high + "$" + x.$low; };
     break;
 
   case $kindUint64:
@@ -498,7 +507,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$low = low >>> 0;
       this.$val = this;
     };
-    typ.prototype.$key = function() { return string + "$" + this.$high + "$" + this.$low; };
+    typ.keyFor = function(x) { return x.$high + "$" + x.$low; };
     break;
 
   case $kindComplex64:
@@ -507,7 +516,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$imag = $fround(imag);
       this.$val = this;
     };
-    typ.prototype.$key = function() { return string + "$" + this.$real + "$" + this.$imag; };
+    typ.keyFor = function(x) { return x.$real + "$" + x.$imag; };
     break;
 
   case $kindComplex128:
@@ -516,7 +525,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$imag = imag;
       this.$val = this;
     };
-    typ.prototype.$key = function() { return string + "$" + this.$real + "$" + this.$imag; };
+    typ.keyFor = function(x) { return x.$real + "$" + x.$imag; };
     break;
 
   case $kindArray:
@@ -530,10 +539,9 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       typ.elem = elem;
       typ.len = len;
       typ.comparable = elem.comparable;
-      typ.prototype.$key = function() {
-        return string + "$" + Array.prototype.join.call($mapArray(this.$val, function(e) {
-          var key = e.$key ? e.$key() : String(e);
-          return key.replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
+      typ.keyFor = function(x) {
+        return Array.prototype.join.call($mapArray(x, function(e) {
+          return String(elem.keyFor(e)).replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
         }), "$");
       };
       typ.ptr.init(typ);
@@ -550,12 +558,12 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$recvQueue = [];
       this.$closed = false;
     };
-    typ.prototype.$key = function() {
-      if (this.$id === undefined) {
+    typ.keyFor = function(x) {
+      if (x.$id === undefined) {
         $idCounter++;
-        this.$id = $idCounter;
+        x.$id = $idCounter;
       }
-      return String(this.$id);
+      return String(x.$id);
     };
     typ.init = function(elem, sendOnly, recvOnly) {
       typ.elem = elem;
@@ -578,6 +586,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
 
   case $kindInterface:
     typ = { implementedBy: {}, missingMethodFor: {} };
+    typ.keyFor = $ifaceKeyFor;
     typ.init = function(methods) {
       typ.methods = methods;
       methods.forEach(function(m) {
@@ -602,12 +611,12 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
       this.$target = target;
       this.$val = this;
     };
-    typ.prototype.$key = function() {
-      if (this.$id === undefined) {
+    typ.keyFor = function(x) {
+      if (x.$id === undefined) {
         $idCounter++;
-        this.$id = $idCounter;
+        x.$id = $idCounter;
       }
-      return String(this.$id);
+      return String(x.$id);
     };
     typ.init = function(elem) {
       typ.elem = elem;
@@ -647,12 +656,10 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
           typ.comparable = false;
         }
       });
-      typ.prototype.$key = function() {
-        var val = this.$val;
-        return string + "$" + $mapArray(fields, function(f) {
-          var e = val[f.prop];
-          var key = e.$key ? e.$key() : String(e);
-          return key.replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
+      typ.keyFor = function(x) {
+        var val = x.$val;
+        return $mapArray(fields, function(f) {
+          return String(f.typ.keyFor(val[f.prop])).replace(/\\/g, "\\\\").replace(/\$/g, "\\$");
         }).join("$");
       };
       /* nil value */
@@ -773,6 +780,7 @@ var $newType = function(size, kind, string, name, pkg, constructor) {
   typ.methods = [];
   typ.methodSetCache = null;
   typ.comparable = true;
+  typ.keyFor = typ.keyFor || $identity;
   return typ;
 };
 
@@ -958,7 +966,7 @@ var $interfaceType = function(methods) {
   return typ;
 };
 var $emptyInterface = $interfaceType([]);
-var $ifaceNil = { $key: function() { return "nil"; } };
+var $ifaceNil = {};
 var $error = $newType(8, $kindInterface, "error", "error", "", null);
 $error.init([{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}]);
 
@@ -1389,7 +1397,7 @@ var $go = function(fun, args, direct) {
       $curGoroutine = $goroutine;
       var r = fun.apply(undefined, args);
       if (r && r.$blk !== undefined) {
-        fun = function() { r.$blk(); };
+        fun = function() { return r.$blk(); };
         args = [];
         rescheduled = true;
         return;
@@ -1420,7 +1428,20 @@ var $go = function(fun, args, direct) {
   $schedule($goroutine, direct);
 };
 
-var $scheduled = [], $schedulerLoopActive = false;
+var $scheduled = [], $schedulerActive = false;
+var $runScheduled = function() {
+  try {
+    var r;
+    while ((r = $scheduled.shift()) !== undefined) {
+      r();
+    }
+    $schedulerActive = false;
+  } finally {
+    if ($schedulerActive) {
+      setTimeout($runScheduled, 0);
+    }
+  }
+};
 var $schedule = function(goroutine, direct) {
   if (goroutine.asleep) {
     goroutine.asleep = false;
@@ -1433,18 +1454,9 @@ var $schedule = function(goroutine, direct) {
   }
 
   $scheduled.push(goroutine);
-  if (!$schedulerLoopActive) {
-    $schedulerLoopActive = true;
-    setTimeout(function() {
-      while (true) {
-        var r = $scheduled.shift();
-        if (r === undefined) {
-          $schedulerLoopActive = false;
-          break;
-        }
-        r();
-      };
-    }, 0);
+  if (!$schedulerActive) {
+    $schedulerActive = true;
+    setTimeout($runScheduled, 0);
   }
 };
 
@@ -1902,8 +1914,8 @@ var $internalize = function(v, t, recv) {
     var m = new $Map();
     var keys = $keys(v);
     for (var i = 0; i < keys.length; i++) {
-      var key = $internalize(keys[i], t.key);
-      m[key.$key ? key.$key() : key] = { k: key, v: $internalize(v[keys[i]], t.elem) };
+      var k = $internalize(keys[i], t.key);
+      m[t.key.keyFor(k)] = { k: k, v: $internalize(v[keys[i]], t.elem) };
     }
     return m;
   case $kindPtr:
@@ -2252,12 +2264,12 @@ $packages["github.com/Archs/chrome/api/bookmarks"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-$packages["github.com/Archs/gopherjs-ko"] = (function() {
-	var $pkg = {}, $init, js, Disposable, Observable, Object, ptrType, funcType, funcType$1, funcType$2, sliceType, ptrType$1, EnableSecureBinding, Global, NewObservable, NewObservableArray, ApplyBindings;
+$packages["github.com/Archs/js/gopherjs-ko"] = (function() {
+	var $pkg = {}, $init, js, Disposable, Observable, Object, ViewModel, Mapper, ptrType, funcType, funcType$1, funcType$2, sliceType, ptrType$1, ptrType$2, ptrType$4, EnableSecureBinding, Global, NewObservable, NewObservableArray, ApplyBindings, Mapping;
 	js = $packages["github.com/gopherjs/gopherjs/js"];
-	Disposable = $pkg.Disposable = $newType(8, $kindInterface, "ko.Disposable", "Disposable", "github.com/Archs/gopherjs-ko", null);
-	Observable = $pkg.Observable = $newType(8, $kindInterface, "ko.Observable", "Observable", "github.com/Archs/gopherjs-ko", null);
-	Object = $pkg.Object = $newType(0, $kindStruct, "ko.Object", "Object", "github.com/Archs/gopherjs-ko", function(Object_) {
+	Disposable = $pkg.Disposable = $newType(8, $kindInterface, "ko.Disposable", "Disposable", "github.com/Archs/js/gopherjs-ko", null);
+	Observable = $pkg.Observable = $newType(8, $kindInterface, "ko.Observable", "Observable", "github.com/Archs/js/gopherjs-ko", null);
+	Object = $pkg.Object = $newType(0, $kindStruct, "ko.Object", "Object", "github.com/Archs/js/gopherjs-ko", function(Object_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -2265,17 +2277,37 @@ $packages["github.com/Archs/gopherjs-ko"] = (function() {
 		}
 		this.Object = Object_;
 	});
+	ViewModel = $pkg.ViewModel = $newType(0, $kindStruct, "ko.ViewModel", "ViewModel", "github.com/Archs/js/gopherjs-ko", function(Object_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.Object = null;
+			return;
+		}
+		this.Object = Object_;
+	});
+	Mapper = $pkg.Mapper = $newType(0, $kindStruct, "ko.Mapper", "Mapper", "github.com/Archs/js/gopherjs-ko", function(Object_, ops_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.Object = null;
+			this.ops = null;
+			return;
+		}
+		this.Object = Object_;
+		this.ops = ops_;
+	});
 	ptrType = $ptrType(js.Object);
 	funcType = $funcType([ptrType], [], false);
 	funcType$1 = $funcType([ptrType, ptrType], [], false);
 	funcType$2 = $funcType([ptrType], [$Bool], false);
 	sliceType = $sliceType($emptyInterface);
-	ptrType$1 = $ptrType(Object);
+	ptrType$1 = $ptrType(ViewModel);
+	ptrType$2 = $ptrType(Object);
+	ptrType$4 = $ptrType(Mapper);
 	EnableSecureBinding = function() {
 		var $ptr, _key, _map, ko, ksbp, secureBindingsProvider;
 		ko = $global.ko;
 		secureBindingsProvider = ko.secureBindingsProvider;
-		ksbp = new (secureBindingsProvider)($externalize((_map = new $Map(), _key = "attribute", _map[_key] = { k: _key, v: new $String("data-bind") }, _key = "globals", _map[_key] = { k: _key, v: new $jsObjectPtr($global.window) }, _key = "bindings", _map[_key] = { k: _key, v: new $jsObjectPtr(ko.bindingHandlers) }, _key = "noVirtualElements", _map[_key] = { k: _key, v: new $Bool(false) }, _map), js.M));
+		ksbp = new (secureBindingsProvider)($externalize((_map = new $Map(), _key = "attribute", _map[$String.keyFor(_key)] = { k: _key, v: new $String("data-bind") }, _key = "globals", _map[$String.keyFor(_key)] = { k: _key, v: new $jsObjectPtr($global.window) }, _key = "bindings", _map[$String.keyFor(_key)] = { k: _key, v: new $jsObjectPtr(ko.bindingHandlers) }, _key = "noVirtualElements", _map[$String.keyFor(_key)] = { k: _key, v: new $Bool(false) }, _map), js.M));
 		ko.bindingProvider.instance = ksbp;
 	};
 	$pkg.EnableSecureBinding = EnableSecureBinding;
@@ -2414,62 +2446,103 @@ $packages["github.com/Archs/gopherjs-ko"] = (function() {
 		Global().applyBindings($externalize(model, $emptyInterface));
 	};
 	$pkg.ApplyBindings = ApplyBindings;
+	Mapping = function() {
+		var $ptr;
+		return new Mapper.ptr(Global().mapping, null);
+	};
+	$pkg.Mapping = Mapping;
+	Mapper.ptr.prototype.FromJS = function(data) {
+		var $ptr, data, m, model;
+		model = ptrType$1.nil;
+		m = this;
+		model = new ViewModel.ptr();
+		if (!(m.ops === null)) {
+			model.Object = m.Object.fromJS($externalize(data, $emptyInterface), m.ops);
+		} else {
+			model.Object = m.Object.fromJS($externalize(data, $emptyInterface));
+		}
+		return model;
+	};
+	Mapper.prototype.FromJS = function(data) { return this.$val.FromJS(data); };
+	Mapper.ptr.prototype.ToJS = function(vm) {
+		var $ptr, m, vm;
+		m = this;
+		return m.Object.toJS(vm.Object);
+	};
+	Mapper.prototype.ToJS = function(vm) { return this.$val.ToJS(vm); };
+	Mapper.ptr.prototype.FromJSON = function(data) {
+		var $ptr, data, m, model;
+		model = ptrType$1.nil;
+		m = this;
+		model = new ViewModel.ptr();
+		if (!(m.ops === null)) {
+			model.Object = m.Object.fromJSON($externalize(data, $String), m.ops);
+		} else {
+			model.Object = m.Object.fromJSON($externalize(data, $String));
+		}
+		return model;
+	};
+	Mapper.prototype.FromJSON = function(data) { return this.$val.FromJSON(data); };
+	Mapper.ptr.prototype.ToJSON = function(vm) {
+		var $ptr, m, vm;
+		m = this;
+		return $internalize(m.Object.toJSON(vm.Object), $String);
+	};
+	Mapper.prototype.ToJSON = function(vm) { return this.$val.ToJSON(vm); };
+	ViewModel.ptr.prototype.Set = function(key, value) {
+		var $ptr, key, v, value;
+		v = this;
+		if (v.Get(key) === null) {
+			$panic(new $String("vm has no key: " + key));
+		} else {
+			v.Object[$externalize(key, $String)]($externalize(value, $emptyInterface));
+		}
+	};
+	ViewModel.prototype.Set = function(key, value) { return this.$val.Set(key, value); };
+	ViewModel.ptr.prototype.Get = function(key) {
+		var $ptr, key, v;
+		v = this;
+		return v.Object[$externalize(key, $String)]();
+	};
+	ViewModel.prototype.Get = function(key) { return this.$val.Get(key); };
 	Object.ptr.prototype.IsValid = function() {
 		var $ptr, ob;
 		ob = this;
 		return !!(ob.Object.isValid());
 	};
 	Object.prototype.IsValid = function() { return this.$val.IsValid(); };
-	ptrType$1.methods = [{prop: "Dispose", name: "Dispose", pkg: "", typ: $funcType([], [], false)}, {prop: "Set", name: "Set", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "Get", name: "Get", pkg: "", typ: $funcType([], [ptrType], false)}, {prop: "Subscribe", name: "Subscribe", pkg: "", typ: $funcType([funcType], [Disposable], false)}, {prop: "Extend", name: "Extend", pkg: "", typ: $funcType([js.M], [Observable], false)}, {prop: "Index", name: "Index", pkg: "", typ: $funcType([$Int], [ptrType], false)}, {prop: "Length", name: "Length", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "IndexOf", name: "IndexOf", pkg: "", typ: $funcType([$emptyInterface], [$Int], false)}, {prop: "Push", name: "Push", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "Pop", name: "Pop", pkg: "", typ: $funcType([], [ptrType], false)}, {prop: "Unshift", name: "Unshift", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "Shift", name: "Shift", pkg: "", typ: $funcType([], [ptrType], false)}, {prop: "Reverse", name: "Reverse", pkg: "", typ: $funcType([], [], false)}, {prop: "Sort", name: "Sort", pkg: "", typ: $funcType([], [], false)}, {prop: "SortFunc", name: "SortFunc", pkg: "", typ: $funcType([funcType$1], [], false)}, {prop: "Splice", name: "Splice", pkg: "", typ: $funcType([$Int, $Int], [ptrType], false)}, {prop: "Remove", name: "Remove", pkg: "", typ: $funcType([$emptyInterface], [ptrType], false)}, {prop: "RemoveFunc", name: "RemoveFunc", pkg: "", typ: $funcType([funcType$2], [ptrType], false)}, {prop: "RemoveAll", name: "RemoveAll", pkg: "", typ: $funcType([sliceType], [ptrType], true)}, {prop: "IsValid", name: "IsValid", pkg: "", typ: $funcType([], [$Bool], false)}];
+	ptrType$2.methods = [{prop: "Dispose", name: "Dispose", pkg: "", typ: $funcType([], [], false)}, {prop: "Set", name: "Set", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "Get", name: "Get", pkg: "", typ: $funcType([], [ptrType], false)}, {prop: "Subscribe", name: "Subscribe", pkg: "", typ: $funcType([funcType], [Disposable], false)}, {prop: "Extend", name: "Extend", pkg: "", typ: $funcType([js.M], [Observable], false)}, {prop: "Index", name: "Index", pkg: "", typ: $funcType([$Int], [ptrType], false)}, {prop: "Length", name: "Length", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "IndexOf", name: "IndexOf", pkg: "", typ: $funcType([$emptyInterface], [$Int], false)}, {prop: "Push", name: "Push", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "Pop", name: "Pop", pkg: "", typ: $funcType([], [ptrType], false)}, {prop: "Unshift", name: "Unshift", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "Shift", name: "Shift", pkg: "", typ: $funcType([], [ptrType], false)}, {prop: "Reverse", name: "Reverse", pkg: "", typ: $funcType([], [], false)}, {prop: "Sort", name: "Sort", pkg: "", typ: $funcType([], [], false)}, {prop: "SortFunc", name: "SortFunc", pkg: "", typ: $funcType([funcType$1], [], false)}, {prop: "Splice", name: "Splice", pkg: "", typ: $funcType([$Int, $Int], [ptrType], false)}, {prop: "Remove", name: "Remove", pkg: "", typ: $funcType([$emptyInterface], [ptrType], false)}, {prop: "RemoveFunc", name: "RemoveFunc", pkg: "", typ: $funcType([funcType$2], [ptrType], false)}, {prop: "RemoveAll", name: "RemoveAll", pkg: "", typ: $funcType([sliceType], [ptrType], true)}, {prop: "IsValid", name: "IsValid", pkg: "", typ: $funcType([], [$Bool], false)}];
+	ptrType$1.methods = [{prop: "Set", name: "Set", pkg: "", typ: $funcType([$String, $emptyInterface], [], false)}, {prop: "Get", name: "Get", pkg: "", typ: $funcType([$String], [ptrType], false)}];
+	ptrType$4.methods = [{prop: "FromJS", name: "FromJS", pkg: "", typ: $funcType([$emptyInterface], [ptrType$1], false)}, {prop: "ToJS", name: "ToJS", pkg: "", typ: $funcType([ptrType$1], [ptrType], false)}, {prop: "FromJSON", name: "FromJSON", pkg: "", typ: $funcType([$String], [ptrType$1], false)}, {prop: "ToJSON", name: "ToJSON", pkg: "", typ: $funcType([ptrType$1], [$String], false)}];
 	Disposable.init([{prop: "Dispose", name: "Dispose", pkg: "", typ: $funcType([], [], false)}]);
 	Observable.init([{prop: "Dispose", name: "Dispose", pkg: "", typ: $funcType([], [], false)}, {prop: "Extend", name: "Extend", pkg: "", typ: $funcType([js.M], [Observable], false)}, {prop: "Get", name: "Get", pkg: "", typ: $funcType([], [ptrType], false)}, {prop: "Set", name: "Set", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "Subscribe", name: "Subscribe", pkg: "", typ: $funcType([funcType], [Disposable], false)}]);
 	Object.init([{prop: "Object", name: "", pkg: "", typ: ptrType, tag: ""}]);
+	ViewModel.init([{prop: "Object", name: "", pkg: "", typ: ptrType, tag: ""}]);
+	Mapper.init([{prop: "Object", name: "", pkg: "", typ: ptrType, tag: ""}, {prop: "ops", name: "ops", pkg: "github.com/Archs/js/gopherjs-ko", typ: ptrType, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = js.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.$init = $init;
-	return $pkg;
-})();
-$packages["github.com/Archs/js/JSON"] = (function() {
-	var $pkg = {}, $init, js, json, Stringify;
-	js = $packages["github.com/gopherjs/gopherjs/js"];
-	Stringify = function(obj) {
-		var $ptr, obj;
-		return $internalize(json.stringify($externalize(obj, $emptyInterface)), $String);
-	};
-	$pkg.Stringify = Stringify;
-	$init = function() {
-		$pkg.$init = function() {};
-		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		$r = js.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		json = $global.JSON;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
 	return $pkg;
 })();
 $packages["main"] = (function() {
-	var $pkg = {}, $init, bookmarks, ko, JSON, js, out, bmks, main;
+	var $pkg = {}, $init, bookmarks, ko, out, bmks, main;
 	bookmarks = $packages["github.com/Archs/chrome/api/bookmarks"];
-	ko = $packages["github.com/Archs/gopherjs-ko"];
-	JSON = $packages["github.com/Archs/js/JSON"];
-	js = $packages["github.com/gopherjs/gopherjs/js"];
+	ko = $packages["github.com/Archs/js/gopherjs-ko"];
 	main = function() {
-		var $ptr, _key, _map, model;
+		var $ptr;
 		ko.EnableSecureBinding();
-		model = (_map = new $Map(), _key = "out", _map[_key] = { k: _key, v: out }, _key = "bookmarks", _map[_key] = { k: _key, v: bmks }, _map);
-		ko.ApplyBindings(new js.M(model));
-		bookmarks.GetTree((function $b(bs) {
-			var $ptr, bs, str, $s, $r;
-			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; bs = $f.bs; str = $f.str; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-			$r = bmks.Set(bs); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-			str = JSON.Stringify(bs);
-			console.log(str);
-			$r = out.Set(new $String(str)); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-			/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f.bs = bs; $f.str = str; $f.$s = $s; $f.$r = $r; return $f;
+		bookmarks.GetTree((function(bs) {
+			var $ptr, bs, vm, x;
+			(0 >= bs.$length ? $throwRuntimeError("index out of range") : bs.$array[bs.$offset + 0]).Object.title = $externalize("Root", $String);
+			vm = ko.Mapping().FromJS((x = (0 >= bs.$length ? $throwRuntimeError("index out of range") : bs.$array[bs.$offset + 0]), new x.constructor.elem(x)));
+			vm.Object.title($externalize("title change after mapping", $String));
+			console.log("vm:", vm);
+			console.log("vm.toJSON:", ko.Mapping().ToJSON(vm));
+			ko.ApplyBindings(vm);
 		}));
 	};
 	$init = function() {
@@ -2477,8 +2550,6 @@ $packages["main"] = (function() {
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = bookmarks.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = ko.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = JSON.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = js.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		out = ko.NewObservable(new $String(""));
 		bmks = ko.NewObservableArray($ifaceNil);
 		main();
