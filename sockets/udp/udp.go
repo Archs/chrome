@@ -1,7 +1,7 @@
 package udp
 
 import (
-	"github.com/Archs/chrome/net/sockets"
+	"github.com/Archs/chrome/sockets"
 	"github.com/gopherjs/gopherjs/js"
 )
 
