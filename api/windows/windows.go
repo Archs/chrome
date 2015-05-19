@@ -22,7 +22,7 @@ var (
  */
 
 type Window struct {
-	js.Object
+	*js.Object
 	Id          int        `js:"id"`
 	Focused     bool       `js:"focused"`
 	Top         int        `js:"top"`
@@ -42,33 +42,33 @@ type Window struct {
  */
 
 // Get gets details about a window.
-func Get(windowId int, getInfo js.M, callback func(window Window)) {
+func Get(windowId int, getInfo js.M, callback func(window *Window)) {
 	windows.Call("get", windowId, getInfo, callback)
 }
 
 // GetCurrent gets the current window.
-func GetCurrent(getInfo js.M, callback func(window Window)) {
+func GetCurrent(getInfo js.M, callback func(window *Window)) {
 	windows.Call("getCurrent", getInfo, callback)
 }
 
 // GetLastFocused gets the window that was most recently focused — typically the window 'on top'.
-func GetLastFocused(getInfo js.M, callback func(window Window)) {
+func GetLastFocused(getInfo js.M, callback func(window *Window)) {
 	windows.Call("getLastFocused", getInfo, callback)
 }
 
 // GetAll gets all windows.
-func GetAll(getInfo js.M, callback func(windows []Window)) {
+func GetAll(getInfo js.M, callback func(windows []*Window)) {
 	windows.Call("getAll", getInfo, callback)
 }
 
 // Create creates (opens) a new browser with any optional sizing, position or default URL provided.
-func Create(createData js.M, callback func(window Window)) {
+func Create(createData js.M, callback func(window *Window)) {
 	windows.Call("create", createData, callback)
 }
 
 // Update updates the properties of a window. Specify only the properties that you
 // want to change; unspecified properties will be left unchanged.
-func Update(windowId int, updateInfo js.M, callback func(window Window)) {
+func Update(windowId int, updateInfo js.M, callback func(window *Window)) {
 	windows.Call("update", windowId, updateInfo, callback)
 }
 
@@ -82,7 +82,7 @@ func Remove(windowId int, callback func(js.Object)) {
  */
 
 // OnCreated fired when a window is created.
-func OnCreated(callback func(window Window)) {
+func OnCreated(callback func(window *Window)) {
 	windows.Get("onCreated").Call("addListener", callback)
 }
 
