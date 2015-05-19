@@ -31,6 +31,7 @@ type crConn struct {
 }
 
 func newCrConn(socketId int) *crConn {
+	println("creating crConn, id:", socketId)
 	conn := &crConn{
 		socketId:     socketId,
 		readBuf:      bytes.NewBuffer(nil),
@@ -38,6 +39,7 @@ func newCrConn(socketId int) *crConn {
 		readDeadLine: time.Time{},
 	}
 	smap[socketId] = conn
+	println("c smap length:", len(smap))
 	return conn
 }
 
@@ -47,7 +49,7 @@ type crListener struct {
 	err      error
 }
 
-func Dial(network, address string) (Conn, error) {
+func Dial(network, address string) (net.Conn, error) {
 	addr, err := net.ResolveTCPAddr(network, address)
 	if err != nil {
 		return nil, err
@@ -68,7 +70,6 @@ func Dial(network, address string) (Conn, error) {
 		return nil, err
 	}
 	conn := newCrConn(socketId)
-	smap[socketId] = conn
 	return conn, nil
 }
 
@@ -93,11 +94,13 @@ func Listen(network, laddr string) (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &crListener{
+	l := &crListener{
 		socketId: socketId,
 		ch:       make(chan int),
 		err:      nil,
-	}, nil
+	}
+	listenerMap[socketId] = l
+	return l, nil
 }
 
 // Accept waits for and returns the next connection to the listener.
@@ -108,7 +111,9 @@ func (cl *crListener) Accept() (c net.Conn, err error) {
 		cl.err = nil
 		return
 	}
-	c = newCrConn(<-cl.ch)
+	id := <-cl.ch
+	println("listener.Accept socket id", id)
+	c = newCrConn(id)
 	return
 }
 
@@ -192,6 +197,7 @@ func (c *crConn) Write(b []byte) (n int, err error) {
 // Close closes the connection.
 // Any blocked Read or Write operations will be unblocked and return errors.
 func (c *crConn) Close() error {
+	println("conn.Close called")
 	tcp.Close(c.socketId)
 	delete(smap, c.socketId)
 	return nil
@@ -265,10 +271,14 @@ func init() {
 	tcp.OnReceive(func(ri *tcp.ReceiveInfo) {
 		m.Lock()
 		defer m.Unlock()
+		println("tcp receive on socket:", ri.SocketId)
+		println("smap length:", len(smap))
 		conn, ok := smap[ri.SocketId]
 		if ok {
 			println("ri.Data", ri.Data)
 			conn.readBuf.Write(ri.Data)
+		} else {
+			println("no conn found", smap)
 		}
 	})
 	tcp.OnReceiveError(func(re *tcp.ReceiveError) {
@@ -280,6 +290,7 @@ func init() {
 		}
 	})
 	tcpserver.OnAccept(func(ai *tcpserver.AcceptInfo) {
+		println("tcpserver accept:", ai.ClientSocketId)
 		cl, ok := listenerMap[ai.SocketId]
 		if !ok {
 			return
