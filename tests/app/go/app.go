@@ -6,10 +6,9 @@ import (
 	"github.com/Archs/chrome/net/sockets"
 	"github.com/Archs/chrome/net/sockets/tcp"
 	"github.com/Archs/chrome/net/sockets/tcpserver"
-	_ "github.com/Archs/js/koSecureBindings"
+	"github.com/Archs/gopherjs-ko"
 	QUnit "github.com/fabioberger/qunit"
 	"github.com/gopherjs/gopherjs/js"
-	"github.com/mibitzi/gopherjs-ko"
 	"log"
 )
 
@@ -118,6 +117,7 @@ func applyBindings() {
 }
 
 func main() {
+	ko.EnableSecureBinding()
 	applyBindings()
 	QUnit.Module("sockets")
 	tcpserver.Create(func(ci *sockets.CreateInfo) {
