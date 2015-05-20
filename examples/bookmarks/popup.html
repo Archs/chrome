@@ -2,6 +2,10 @@
 <html>
 <head>
     <title>My Bookmarks</title>
+	<script type="text/javascript" src="lib/knockout-3.3.0.min.js"></script>
+	<script type="text/javascript" src="lib/knockout-secure-binding.min.js"></script>
+	<script type="text/javascript" src="lib/knockout.mapping-2.4.1.min.js"></script>
+	<script type="text/javascript" src="main.js"></script>
 </head>
 <body>
     <ul data-bind="template:{name:'bookmarkTmpl', data:$root}">
@@ -13,8 +17,4 @@
         <ul data-bind="template: { name: 'bookmarkTmpl', foreach: children }"></ul>
     </li>
 </script>
-<script type="text/javascript" src="lib/knockout-3.3.0.min.js"></script>
-<script type="text/javascript" src="lib/knockout-secure-binding.min.js"></script>
-<script type="text/javascript" src="lib/knockout.mapping-2.4.1.min.js"></script>
-<script type="text/javascript" src="main.js"></script>
 </html>
