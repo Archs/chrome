@@ -27,12 +27,12 @@ type BookmarkController struct {
 	*js.Object
 	// Title ko.Observable       `js:"Title"`
 	// Show func(bookmarks.TreeNode) `js:"Show"`
-	Show func(*ko.MappedViewModel, *dom.Event) `js:"Show"`
+	Show func(*ko.ViewModel, *dom.Event) `js:"Show"`
 	// Show     *js.Object          `js:"Show"`
-	Test     func()              `js:"Test"`
-	TextArea *ko.Observable      `js:"TextArea"`
-	Time     *ko.Observable      `js:"Time"`
-	Root     *ko.MappedViewModel `js:"Root"`
+	Test     func()         `js:"Test"`
+	TextArea *ko.Observable `js:"TextArea"`
+	Time     *ko.Observable `js:"Time"`
+	Root     *ko.ViewModel  `js:"Root"`
 	// Root *ko.Observable `js:"Root"`
 	// Str      string              `js:"Str"`
 	Str string
@@ -52,7 +52,7 @@ func newBkmkCtrl() *BookmarkController {
 		println(b, b.Str)
 	}
 	// b.Show = func(n bookmarks.TreeNode) {
-	b.Show = func(vm *ko.MappedViewModel, e *dom.Event) {
+	b.Show = func(vm *ko.ViewModel, e *dom.Event) {
 		e.StopPropagation()
 		println(e.Type())
 		println("Show", vm.Get("id").String(),
@@ -79,7 +79,6 @@ func run() {
 	// model := newBkmkCtrl()
 	// println("model:", model)
 	// ko.ApplyBindings(model)
-	println("Get:", ko.Global().Get("asdfasdfafd") == js.Undefined)
 	model = newMainCtrl()
 	// println(model.Bookmark.Show)
 	bookmarks.GetTree(func(bs []*bookmarks.TreeNode) {
