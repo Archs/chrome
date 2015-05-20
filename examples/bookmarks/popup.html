@@ -8,8 +8,10 @@
 	<script type="text/javascript" src="main.js"></script>
 </head>
 <body>
-    <ul data-bind="template:{name:'bookmarkTmpl', data:$root}">
-    </ul>
+	<span data-bind="text: Title"></span>
+	<button data-bind="click: Bookmark.Show">Show</button>
+    <ul data-bind="template:{name:'bookmarkTmpl', data:Bookmark.Root}"></ul>
+    <textarea data-bind="value: Bookmark.TextArea"></textarea>
 </body>
 <script id="bookmarkTmpl" type="text/html">
     <li>
