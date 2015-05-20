@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test</title>
+	<link rel="stylesheet" type="text/css" href="progressbar.css">
+</head>
+<body>
+	<button data-bind="click: go">Start</button>
+
+	<h1>Normal (<span data-bind="text: normal().length + '%'"></span>)</h1>
+	<ul data-bind="foreach: normal">
+	    <li></li>
+	</ul>
+
+	<h1>Throttled (<span data-bind="text: throttled().length + '%'"></span>)</h1>
+	<ul data-bind="foreach: throttled">
+	    <li></li>
+	</ul>
+
+	<h1>Debounced (<span data-bind="text: debounced().length + '%'"></span>)</h1>
+	<ul data-bind="foreach: debounced">
+	    <li></li>
+	</ul>
+</body>
+	<script type="text/javascript" src="lib/knockout-3.3.0.min.js"></script>
+	<script type="text/javascript" src="lib/knockout-secure-binding.min.js"></script>
+	<script type="text/javascript" src="lib/knockout.mapping-2.4.1.min.js"></script>
+	<script type="text/javascript" src="progressbar.js"></script>
+</html>
