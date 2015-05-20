@@ -1,3 +1,3 @@
 
 main.js:main.go
-	gopherjs build -o $@ $^
+	gopherjs build -m -o $@ $^
