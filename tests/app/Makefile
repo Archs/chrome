@@ -5,3 +5,6 @@ app.js:go/app.go
 
 background.js:go/background.go
 	gopherjs build $^ -o $@
+
+clean:
+	rm -rf app.js background.js
