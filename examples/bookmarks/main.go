@@ -13,6 +13,7 @@ var (
 )
 
 func main() {
+	ko.EnableSecureBinding()
 	dom.OnDOMContentLoaded(run)
 }
 
@@ -27,12 +28,14 @@ type BookmarkController struct {
 	*js.Object
 	// Title ko.Observable       `js:"Title"`
 	// Show func(bookmarks.TreeNode) `js:"Show"`
-	Show func(*ko.ViewModel, *dom.Event) `js:"Show"`
+	Toggle func(*ko.ViewModel, *dom.Event) `js:"Toggle"`
 	// Show     *js.Object          `js:"Show"`
-	Test     func()         `js:"Test"`
-	TextArea *ko.Observable `js:"TextArea"`
-	Time     *ko.Observable `js:"Time"`
-	Root     *ko.ViewModel  `js:"Root"`
+	Test     func()                         `js:"Test"`
+	TextArea *ko.Observable                 `js:"TextArea"`
+	Time     *ko.Observable                 `js:"Time"`
+	Root     *ko.ViewModel                  `js:"Root"`
+	Goto     func(node *bookmarks.TreeNode) `js:"Goto"`
+	Edit     func(node *bookmarks.TreeNode) `js:"Edit"`
 	// Root *ko.Observable `js:"Root"`
 	// Str      string              `js:"Str"`
 	Str string
@@ -52,12 +55,18 @@ func newBkmkCtrl() *BookmarkController {
 		println(b, b.Str)
 	}
 	// b.Show = func(n bookmarks.TreeNode) {
-	b.Show = func(vm *ko.ViewModel, e *dom.Event) {
+	b.Toggle = func(vm *ko.ViewModel, e *dom.Event) {
 		e.StopPropagation()
-		println(e.Type())
+		println(e.Type, e.Target())
 		println("Show", vm.Get("id").String(),
 			vm.Get("title").String(),
 			vm.Get("url").String())
+	}
+	b.Goto = func(node *bookmarks.TreeNode) {
+		println("Goto:", node)
+	}
+	b.Edit = func(node *bookmarks.TreeNode) {
+		println("Goto:", node)
 	}
 	// b.Show = js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
 	// 	println("Show:", this.Get("url").Invoke().String())
@@ -75,16 +84,11 @@ func newMainCtrl() *MainController {
 }
 
 func run() {
-	ko.EnableSecureBinding()
-	// model := newBkmkCtrl()
-	// println("model:", model)
-	// ko.ApplyBindings(model)
 	model = newMainCtrl()
-	// println(model.Bookmark.Show)
 	bookmarks.GetTree(func(bs []*bookmarks.TreeNode) {
 		bs[0].Title = "Root"
 		model.Bookmark.Root = ko.Mapping().FromJS(bs[0])
-		// model.Bookmark.Root = ko.NewObservable(ko.Mapping().FromJS(bs[0]))
+		println("bs:", bs)
 		ko.ApplyBindings(model)
 	})
 }
