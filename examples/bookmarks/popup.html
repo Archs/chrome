@@ -18,13 +18,13 @@
 </head>
 <body>
 	<h2 data-bind="text: Title"></h2>
-    <ul data-bind="template:{name:'bookmarkTmpl', data:Bookmark.Root}"></ul>
+    <ul data-bind="template:{name:'bookmarkTmpl', foreach: Bookmark.Root.children}"></ul>
 </body>
 </html>
 
 <script id="bookmarkTmpl" type="text/html">
     <li data-bind="click: $root.Bookmark.Toggle, clickBubble:false">
-            <a data-bind="attr: {href: url, title: title}, text:title, click: $root.Bookmark.Goto, css:{children:children}"></a>
+            <a data-bind="attr: {href: url, title: url}, text:title, click: $root.Bookmark.Goto, css:{children:children}"></a>
             <section class="togglesection" data-bind="visible:children">
                 <ul data-bind="template: {name: 'bookmarkTmpl', foreach: children}, css:{children:children}"></ul>
             </section>
