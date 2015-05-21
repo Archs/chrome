@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>My Bookmarks</title>
+    <link rel="stylesheet" type="text/css" href="main.css">
 	<script type="text/javascript" src="lib/knockout-3.3.0.min.js"></script>
 	<script type="text/javascript" src="lib/knockout-secure-binding.min.js"></script>
 	<script type="text/javascript" src="lib/knockout.mapping-2.4.1.min.js"></script>
@@ -9,14 +10,15 @@
 </head>
 <body>
 	<span data-bind="text: Title"></span>
-	<button data-bind="click: Bookmark.Test">Test</button>
-    <textarea data-bind="value: Bookmark.TextArea"></textarea>
     <ul data-bind="template:{name:'bookmarkTmpl', data:Bookmark.Root}"></ul>
 </body>
+</html>
+
 <script id="bookmarkTmpl" type="text/html">
-    <li data-bind="click: $root.Bookmark.Show">
+    <li data-bind="click: $root.Bookmark.Toggle">
         <span data-bind="text: title"></span>
-        <ul data-bind="template: { name: 'bookmarkTmpl', foreach: children }"></ul>
+        <button data-bind="click: $root.Bookmark.Goto, visible: url">Goto</button>
+        <button data-bind="click: $root.Bookmark.Edit">Edit</button>
+        <ul data-bind="template: { name: 'bookmarkTmpl', foreach: children}"></ul>
     </li>
 </script>
-</html>
