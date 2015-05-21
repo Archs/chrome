@@ -74,6 +74,46 @@ func GetAllInWindow(windowId int, callback func(tabs []Tab)) {
 }
 
 // Create creates a new tab.
+//
+//	 Creates a new tab.
+//
+//	 Parameters
+//	 object	createProperties
+//	 integer	(optional) windowId
+//	 The window to create the new tab in. Defaults to the current window.
+//
+//	 integer	(optional) index
+//	 The position the tab should take in the window. The provided value will be clamped to between zero and the number of tabs in the window.
+//
+//	 string	(optional) url
+//	 The URL to navigate the tab to initially. Fully-qualified URLs must include a scheme (i.e. 'http://www.google.com', not 'www.google.com'). Relative URLs will be relative to the current page within the extension. Defaults to the New Tab Page.
+//
+//	 boolean	(optional) active
+//	 Since Chrome 16.
+//
+//	 Whether the tab should become the active tab in the window. Does not affect whether the window is focused (see windows.update). Defaults to true.
+//
+//	 boolean	(optional) selected
+//	 Deprecated since Chrome 33. Please use active.
+//
+//	 Whether the tab should become the selected tab in the window. Defaults to true
+//
+//	 boolean	(optional) pinned
+//	 Since Chrome 9.
+//
+//	 Whether the tab should be pinned. Defaults to false
+//
+//	 integer	(optional) openerTabId
+//	 Since Chrome 18.
+//
+//	 The ID of the tab that opened this tab. If specified, the opener tab must be in the same window as the newly created tab.
+//
+//	 function	(optional) callback
+//	 If you specify the callback parameter, it should be a function that looks like this:
+//
+//	 function( Tab tab) {...};
+//	 Tab	tab
+//	 Details about the created tab. Will contain the ID of the new tab.
 func Create(createProperties interface{}, callback func(tab Tab)) {
 	tabs.Call("create", createProperties, callback)
 }

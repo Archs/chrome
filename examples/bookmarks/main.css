@@ -1,7 +1,44 @@
-.show {
-	display: inherit;
+html {
+    background-color: rgb(232, 222, 240);
 }
 
-.hide {
+html {}
+
+body {
+	width: 30em;
+	box-shadow: tan;
+	padding: 1em;
+	border-style: ridge;
+}
+
+body {}
+
+ul {
+	padding: 1em;
+	margin: 0;
+}
+
+li{
+    list-style-type: circle;
+	
+}
+
+body > ul > li {
+	font-size: medium;
+	/* font-style: italic; */
+}
+
+button {}
+
+button{
+	color: blue;
+	border-radius: 10px;
+	box-sizing: content-box;
+	box-shadow: 1px 1px 1px rgba(37, 31, 31, 0.29), inset 1px 1px 1px rgba(255,255,255, .44);
+}
+
+.children {
 	display: none;
 }
+
+span {}

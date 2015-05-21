@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/Archs/chrome/api/bookmarks"
+	"github.com/Archs/chrome/api/tabs"
 	"github.com/Archs/js/dom"
 	"github.com/Archs/js/gopherjs-ko"
 	"github.com/gopherjs/gopherjs/js"
@@ -34,7 +35,7 @@ type BookmarkController struct {
 	TextArea *ko.Observable                 `js:"TextArea"`
 	Time     *ko.Observable                 `js:"Time"`
 	Root     *ko.ViewModel                  `js:"Root"`
-	Goto     func(node *bookmarks.TreeNode) `js:"Goto"`
+	Goto     func(node *ko.ViewModel)       `js:"Goto"`
 	Edit     func(node *bookmarks.TreeNode) `js:"Edit"`
 	// Root *ko.Observable `js:"Root"`
 	// Str      string              `js:"Str"`
@@ -56,14 +57,25 @@ func newBkmkCtrl() *BookmarkController {
 	}
 	// b.Show = func(n bookmarks.TreeNode) {
 	b.Toggle = func(vm *ko.ViewModel, e *dom.Event) {
-		e.StopPropagation()
-		println(e.Type, e.Target())
-		println("Show", vm.Get("id").String(),
-			vm.Get("title").String(),
-			vm.Get("url").String())
+		el := e.Target()
+		children := el.QuerySelector("section")
+		println("children:", children)
+		if children == nil {
+			return
+		}
+		println("children.ClassName:", children.ClassName)
+		cls := children.ClassName
+		if cls == "" {
+			children.ClassName = "children"
+		} else {
+			children.ClassName = ""
+		}
 	}
-	b.Goto = func(node *bookmarks.TreeNode) {
-		println("Goto:", node)
+	b.Goto = func(vm *ko.ViewModel) {
+		url := vm.Get("url").String()
+		tabs.Create(js.M{"url": url}, func(t tabs.Tab) {
+			println(t)
+		})
 	}
 	b.Edit = func(node *bookmarks.TreeNode) {
 		println("Goto:", node)
@@ -78,7 +90,7 @@ func newBkmkCtrl() *BookmarkController {
 func newMainCtrl() *MainController {
 	m := MainController{}
 	m.Object = js.Global.Get("Object").New()
-	m.Title = ko.NewObservable("Bookmark Manager")
+	m.Title = ko.NewObservable("Bookmark Viewer")
 	m.Bookmark = newBkmkCtrl()
 	return &m
 }
