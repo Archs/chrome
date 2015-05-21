@@ -2,43 +2,49 @@ html {
     background-color: rgb(232, 222, 240);
 }
 
-html {}
-
 body {
-	width: 30em;
-	box-shadow: tan;
-	padding: 1em;
-	border-style: ridge;
+    width: 30em;
+    padding: 1em;
+    border-style: ridge;
 }
-
-body {}
 
 ul {
-	padding: 1em;
-	margin: 0;
+    padding: 1em;
+    margin: 0;
+    list-style: none;
 }
 
-li{
-    list-style-type: circle;
-	
+li {
+    list-style: none;
+
 }
 
 body > ul > li {
-	font-size: medium;
-	/* font-style: italic; */
+    font-size: medium;
+    /* font-style: italic; */
 }
 
-button {}
+button {
+    color: blue;
+    border-radius: 10px;
+    box-sizing: content-box;
+    box-shadow: 1px 1px 1px rgba(37, 31, 31, 0.29), inset 1px 1px 1px rgba(255,255,255, .44);
+}
 
-button{
-	color: blue;
-	border-radius: 10px;
-	box-sizing: content-box;
-	box-shadow: 1px 1px 1px rgba(37, 31, 31, 0.29), inset 1px 1px 1px rgba(255,255,255, .44);
+.togglesection {
+    display: none;
 }
 
 .children {
-	display: none;
+    cursor: cell;
+    font-weight: bold;
+    /* border: inset; */
 }
 
-span {}
+a.children {
+    border: outset;
+}
+
+a.inset {
+    border: inset;
+}

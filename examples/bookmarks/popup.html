@@ -3,10 +3,18 @@
 <head>
     <title>My Bookmarks</title>
     <link rel="stylesheet" type="text/css" href="main.css">
-	<script type="text/javascript" src="lib/knockout-3.3.0.min.js"></script>
-	<script type="text/javascript" src="lib/knockout-secure-binding.min.js"></script>
-	<script type="text/javascript" src="lib/knockout.mapping-2.4.1.min.js"></script>
-	<script type="text/javascript" src="main.js"></script>
+	<script type="text/javascript" src="lib/knockout-3.3.0.min.js">
+
+</script>
+	<script type="text/javascript" src="lib/knockout-secure-binding.min.js">
+
+</script>
+	<script type="text/javascript" src="lib/knockout.mapping-2.4.1.min.js">
+
+</script>
+	<script type="text/javascript" src="main.js">
+
+</script>
 </head>
 <body>
 	<h2 data-bind="text: Title"></h2>
@@ -16,11 +24,9 @@
 
 <script id="bookmarkTmpl" type="text/html">
     <li data-bind="click: $root.Bookmark.Toggle, clickBubble:false">
-        <div>
-            <a data-bind="attr: {href: url, title: title}, text:title, click: $root.Bookmark.Goto, clickBubble:true"></a>
-            <section class="children" data-bind="visible:children">
-                <ul data-bind="template: {name: 'bookmarkTmpl', foreach: children}"></ul>
+            <a data-bind="attr: {href: url, title: title}, text:title, click: $root.Bookmark.Goto, css:{children:children}"></a>
+            <section class="togglesection" data-bind="visible:children">
+                <ul data-bind="template: {name: 'bookmarkTmpl', foreach: children}, css:{children:children}"></ul>
             </section>
-        </div>
     </li>
 </script>
