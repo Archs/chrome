@@ -31,12 +31,11 @@ type BookmarkController struct {
 	// Show func(bookmarks.TreeNode) `js:"Show"`
 	Toggle func(*ko.ViewModel, *dom.Event) `js:"Toggle"`
 	// Show     *js.Object          `js:"Show"`
-	Test     func()                         `js:"Test"`
-	TextArea *ko.Observable                 `js:"TextArea"`
-	Time     *ko.Observable                 `js:"Time"`
-	Root     *ko.ViewModel                  `js:"Root"`
-	Goto     func(node *ko.ViewModel)       `js:"Goto"`
-	Edit     func(node *bookmarks.TreeNode) `js:"Edit"`
+	Test     func()                   `js:"Test"`
+	TextArea *ko.Observable           `js:"TextArea"`
+	Time     *ko.Observable           `js:"Time"`
+	Root     *ko.ViewModel            `js:"Root"`
+	Goto     func(node *ko.ViewModel) `js:"Goto"`
 	// Root *ko.Observable `js:"Root"`
 	// Str      string              `js:"Str"`
 	Str string
@@ -57,7 +56,7 @@ func newBkmkCtrl() *BookmarkController {
 	}
 	// b.Show = func(n bookmarks.TreeNode) {
 	b.Toggle = func(vm *ko.ViewModel, e *dom.Event) {
-		el := e.Target()
+		el := e.CurrentTarget()
 		children := el.QuerySelector("section")
 		println("children:", children)
 		if children == nil {
@@ -66,9 +65,15 @@ func newBkmkCtrl() *BookmarkController {
 		println("children.ClassName:", children.ClassName)
 		cls := children.ClassName
 		if cls == "" {
-			children.ClassName = "children"
+			children.ClassName = "togglesection"
 		} else {
 			children.ClassName = ""
+		}
+		a := el.QuerySelector("a")
+		if a.ClassName == "children" {
+			a.ClassName = "inset"
+		} else {
+			a.ClassName = "children"
 		}
 	}
 	b.Goto = func(vm *ko.ViewModel) {
@@ -80,13 +85,6 @@ func newBkmkCtrl() *BookmarkController {
 			println(t)
 		})
 	}
-	b.Edit = func(node *bookmarks.TreeNode) {
-		println("Goto:", node)
-	}
-	// b.Show = js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
-	// 	println("Show:", this.Get("url").Invoke().String())
-	// 	return js.Undefined
-	// })
 	return &b
 }
 
