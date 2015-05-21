@@ -9,18 +9,19 @@
 	<script type="text/javascript" src="main.js"></script>
 </head>
 <body>
-	<span data-bind="text: Title"></span>
+	<h2 data-bind="text: Title"></h2>
     <ul data-bind="template:{name:'bookmarkTmpl', data:Bookmark.Root}"></ul>
 </body>
 </html>
 
 <script id="bookmarkTmpl" type="text/html">
-    <li data-bind="click: $root.Bookmark.Toggle">
-        <section>
+    <li data-bind="click: $root.Bookmark.Toggle, clickBubble:false">
+        <div>
             <a data-bind="attr: {href: url, title: title}, text:title"></a>
             <button data-bind="click: $root.Bookmark.Goto, visible: url">Goto</button>
-            <button data-bind="click: $root.Bookmark.Edit">Edit</button>
-            <ul data-bind="template: {name: 'bookmarkTmpl', foreach: children}"></ul>
-        </section>
+            <section class="children" data-bind="visible:children">
+                <ul data-bind="template: {name: 'bookmarkTmpl', foreach: children}"></ul>
+            </section>
+        </div>
     </li>
 </script>
