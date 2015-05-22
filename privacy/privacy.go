@@ -1,4 +1,4 @@
-package chrome
+package privacy
 
 import "github.com/gopherjs/gopherjs/js"
 
