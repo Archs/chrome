@@ -2,9 +2,17 @@ package main
 
 import (
 	"fmt"
+	"github.com/Archs/chrome/api/alarms"
+	"github.com/Archs/chrome/api/bookmarks"
+	"github.com/Archs/chrome/api/browserAction"
+	"github.com/Archs/chrome/api/browsingData"
+	"github.com/Archs/chrome/api/cookies"
+	"github.com/Archs/chrome/api/extension"
+	"github.com/Archs/chrome/api/fontSettings"
+	"github.com/Archs/chrome/api/history"
+	"github.com/Archs/chrome/api/tabs"
 	"time"
 
-	"github.com/fabioberger/chrome"
 	QUnit "github.com/fabioberger/qunit"
 	"github.com/gopherjs/gopherjs/js"
 	"honnef.co/go/js/dom"
@@ -15,7 +23,6 @@ var (
 )
 
 func main() {
-	c := chrome.NewChrome()
 
 	QUnit.Module("Chrome-Popup")
 
@@ -24,35 +31,35 @@ func main() {
 	 */
 
 	// Create New Alarm
-	alarmOps := chrome.Object{
+	alarmOps := js.M{
 		"when": time.Now().UnixNano() + 1000000,
 	}
-	c.Alarms.Create("test_alarm", alarmOps)
+	alarms.Create("test_alarm", alarmOps)
 
 	// Get the Alarm created above
-	c.Alarms.Get("test_alarm", func(alarm chrome.Alarm) {
+	alarms.Get("test_alarm", func(alarm alarms.Alarm) {
 		QUnit.Test("Alarm.Get()", func(assert QUnit.QUnitAssert) {
 			assert.Equal(alarm.Name, "test_alarm", "Get")
 		})
 
 		// Clear the Alarm retrieved above
-		c.Alarms.Clear("test_alarm", func(wasCleared bool) {
+		alarms.Clear("test_alarm", func(wasCleared bool) {
 			QUnit.Test("Alarm.Clear()", func(assert QUnit.QUnitAssert) {
 				assert.Equal(wasCleared, true, "Clear")
 			})
 
 			// Create two more Alarms
-			c.Alarms.Create("test_alarm2", alarmOps)
-			c.Alarms.Create("test_alarm3", alarmOps)
+			alarms.Create("test_alarm2", alarmOps)
+			alarms.Create("test_alarm3", alarmOps)
 
 			// Get both Alarms created above
-			c.Alarms.GetAll(func(alarms []chrome.Alarm) {
+			alarms.GetAll(func(alms []alarms.Alarm) {
 				QUnit.Test("Alarm.GetAll()", func(assert QUnit.QUnitAssert) {
-					assert.Equal(alarms[0].Name, "test_alarm2", "GetAll")
-					assert.Equal(alarms[1].Name, "test_alarm3", "GetAll")
+					assert.Equal(alms[0].Name, "test_alarm2", "GetAll")
+					assert.Equal(alms[1].Name, "test_alarm3", "GetAll")
 				})
 				// Clear both Alarms above
-				c.Alarms.ClearAll(func(wasCleared bool) {
+				alarms.ClearAll(func(wasCleared bool) {
 					QUnit.Test("Alarm.ClearAll()", func(assert QUnit.QUnitAssert) {
 						assert.Equal(wasCleared, true, "Clear")
 					})
@@ -64,18 +71,18 @@ func main() {
 	/*
 	* Bookmarks Method Test
 	 */
-	bookmark := chrome.Object{
+	bookmark := js.M{
 		"title": "Testing",
 		"url":   "http://www.testing.com/",
 	}
 	// Test Create New Bookmarks
-	c.Bookmarks.Create(bookmark, func(result chrome.BookmarkTreeNode) {
+	bookmarks.Create(bookmark, func(result bookmarks.TreeNode) {
 		QUnit.Test("Bookmarks.Create()", func(assert QUnit.QUnitAssert) {
 			assert.Equal(result.Title, "Testing", "Create")
 		})
 
 		// Test Get Bookmark by List of Id's
-		c.Bookmarks.Get([]string{result.Id}, func(results []chrome.BookmarkTreeNode) {
+		bookmarks.Get([]string{result.Id}, func(results []bookmarks.TreeNode) {
 			QUnit.Test("Bookmarks.Get()", func(assert QUnit.QUnitAssert) {
 				assert.Equal(results[0].Url, "http://www.testing.com/", "Get")
 			})
@@ -86,11 +93,11 @@ func main() {
 	* BrowserAction Method Tests
 	 */
 
-	change := chrome.Object{
+	change := js.M{
 		"title": "Testing",
 	}
-	c.BrowserAction.SetTitle(change)
-	c.BrowserAction.GetTitle(chrome.Object{}, func(result string) {
+	browserAction.SetTitle(change)
+	browserAction.GetTitle(js.M{}, func(result string) {
 		QUnit.Test("BrowserAction.GetTitle()", func(assert QUnit.QUnitAssert) {
 			assert.Equal(result, "Testing", "GetTitle")
 		})
@@ -101,7 +108,7 @@ func main() {
 	 */
 
 	// Test Retrieving BrowserData Settings
-	c.BrowsingData.Settings(func(result chrome.Object) {
+	browsingData.Settings(func(result js.M) {
 		for key, _ := range result {
 			QUnit.Test("BrowsingData.Settings()", func(assert QUnit.QUnitAssert) {
 				assert.Equal(key, "dataRemovalPermitted", "Settings")
@@ -115,23 +122,23 @@ func main() {
 	 */
 
 	// Set a new Cookie
-	cookieInfo := chrome.Object{
+	cookieInfo := js.M{
 		"url":   "http://www.google.com",
 		"name":  "testing",
 		"value": "testvalue",
 	}
-	c.Cookies.Set(cookieInfo, func(cookie chrome.Cookie) {
+	cookies.Set(cookieInfo, func(cookie cookies.Cookie) {
 		QUnit.Test("Cookies.Set()", func(assert QUnit.QUnitAssert) {
 			assert.Equal(cookie.Name, "testing", "Set")
 			assert.Equal(cookie.Value, "testvalue", "Set")
 		})
 
 		// Get the cookie set previously
-		cookieInfo = chrome.Object{
+		cookieInfo = js.M{
 			"url":  "http://www.google.com",
 			"name": "testing",
 		}
-		c.Cookies.Get(cookieInfo, func(cookie chrome.Cookie) {
+		cookies.Get(cookieInfo, func(cookie cookies.Cookie) {
 			QUnit.Test("Cookies.Get()", func(assert QUnit.QUnitAssert) {
 				assert.Equal(cookie.Name, "testing", "Get")
 			})
@@ -143,10 +150,10 @@ func main() {
 	 */
 
 	// Get the popup views for the Extension
-	fetchProperties := chrome.Object{
+	fetchProperties := js.M{
 		"type": "popup",
 	}
-	windows := c.Extension.GetViews(fetchProperties)
+	windows := extension.GetViews(fetchProperties)
 	QUnit.Test("Extension.GetViews()", func(assert QUnit.QUnitAssert) {
 		assert.Equal(windows[0].Incognito, false, "GetViews")
 	})
@@ -156,11 +163,11 @@ func main() {
 	 */
 
 	// Get Details for a Generic Font Family
-	fontDetails := chrome.Object{
+	fontDetails := js.M{
 		"genericFamily": "standard",
 		"script":        "Arab",
 	}
-	c.FontSettings.GetFont(fontDetails, func(details chrome.Object) {
+	fontSettings.GetFont(fontDetails, func(details js.M) {
 		for key, _ := range details {
 			QUnit.Test("FontSettings.GetFont()", func(assert QUnit.QUnitAssert) {
 				assert.Equal(key, "fontId", "GetFont")
@@ -174,16 +181,16 @@ func main() {
 	 */
 
 	// Add URL to History
-	urlDetails := chrome.Object{
+	urlDetails := js.M{
 		"url": "http://www.testing.com/",
 	}
-	c.History.AddUrl(urlDetails, func() {
+	history.AddUrl(urlDetails, func() {
 
 		// Search for created URL in History
-		s := chrome.Object{
+		s := js.M{
 			"text": "www.testing.com",
 		}
-		c.History.Search(s, func(results []chrome.HistoryItem) {
+		history.Search(s, func(results []history.HistoryItem) {
 			QUnit.Test("History.Search()", func(assert QUnit.QUnitAssert) {
 				assert.Equal(results[0].Url, "http://www.testing.com/", "Search")
 			})
@@ -195,16 +202,16 @@ func main() {
 	 */
 
 	// Find the current Tab
-	queryInfo := chrome.Object{
+	queryInfo := js.M{
 		"currentWindow": true,
 		"active":        true,
 	}
-	c.Tabs.Query(queryInfo, func(tabs []chrome.Tab) {
-		id := tabs[0].Id
+	tabs.Query(queryInfo, func(tbs []tabs.Tab) {
+		id := tbs[0].Id
 
 		// Send Message to the given Tab & have Event Listener on Tab Respond
-		msg := chrome.Object{"greeting": "hello"}
-		c.Tabs.SendMessage(id, msg, func(response chrome.Object) {
+		msg := js.M{"greeting": "hello"}
+		tabs.SendMessage(id, msg, func(response js.M) {
 			err := js.Global.Get("chrome").Get("runtime").Get("lastError")
 			if err.String() != "undefined" {
 				fmt.Println("Tabs.SendMessage Error: ", err.Get("message").String())
