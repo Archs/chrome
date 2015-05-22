@@ -32,7 +32,7 @@ type TtsVoice struct {
  */
 
 // Speak speaks text using a text-to-speech engine.
-func (t *Tts) Speak(utterance string, options Object, callback func()) {
+func (t *Tts) Speak(utterance string, options js.M, callback func()) {
 	t.o.Call("speak", utterance, options, callback)
 }
 

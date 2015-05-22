@@ -57,25 +57,25 @@ func GetSubTree(id string, callback func(results []BookmarkTreeNode)) {
 }
 
 // Search searches for BookmarkTreeNodes matching the given query. Queries specified
-// with an object produce BookmarkTreeNodes matching all specified properties.
+// with an js.M produce BookmarkTreeNodes matching all specified properties.
 func Search(query interface{}, callback func(results []BookmarkTreeNode)) {
 	bookmarks.Call("search", query, callback)
 }
 
 // Create creates a bookmark or folder under the specified parentId.
 // If url is nil or missing, it will be a folder.
-func Create(bookmark Object, callback func(result BookmarkTreeNode)) {
+func Create(bookmark js.M, callback func(result BookmarkTreeNode)) {
 	bookmarks.Call("create", bookmark, callback)
 }
 
 // Move moves the specified BookmarkTreeNode to the provided location.
-func Move(id string, destination Object, callback func(result BookmarkTreeNode)) {
+func Move(id string, destination js.M, callback func(result BookmarkTreeNode)) {
 	bookmarks.Call("move", id, destination, callback)
 }
 
 // Update updates the properties of a bookmark or folder. Specify only the properties that you want
 // to change; unspecified properties will be left unchanged. Note: Currently, only 'title' and 'url' are supported.
-func Update(id string, changes Object, callback func(result BookmarkTreeNode)) {
+func Update(id string, changes js.M, callback func(result BookmarkTreeNode)) {
 	bookmarks.Call("update", id, changes, callback)
 }
 
@@ -100,23 +100,23 @@ func OnCreated(callback func(id string, bookmark BookmarkTreeNode)) {
 
 // OnRemoved fired when a bookmark or folder is removed. When a folder is removed recursively,
 // a single notification is fired for the folder, and none for its contents.
-func OnRemoved(callback func(id string, removeInfo Object)) {
+func OnRemoved(callback func(id string, removeInfo js.M)) {
 	bookmarks.Get("onRemoved").Call("addListener", callback)
 }
 
 // onChanged fired when a bookmark or folder changes. Note: Currently, only title and url changes trigger this.
-func onChanged(callback func(id string, changeInfo Object)) {
+func onChanged(callback func(id string, changeInfo js.M)) {
 	bookmarks.Get("onChanged").Call("addListener", callback)
 }
 
 // OnMoved fired when a bookmark or folder is moved to a different parent folder.
-func OnMoved(callback func(id string, moveInfo Object)) {
+func OnMoved(callback func(id string, moveInfo js.M)) {
 	bookmarks.Get("onMoved").Call("addListener", callback)
 }
 
 // OnChildrenReordered fired when the children of a folder have changed their order due to
 // the order being sorted in the UI. This is not called as a result of a move().
-func OnChildrenReordered(callback func(id string, reorderInfo Object)) {
+func OnChildrenReordered(callback func(id string, reorderInfo js.M)) {
 	bookmarks.Get("onChildrenReordered").Call("addListener", callback)
 }
 

@@ -56,6 +56,6 @@ type ProxyConfig struct {
  */
 
 // OnProxyError notifies about proxy errors.
-func (p *Proxy) OnProxyError(callback func(details Object)) {
+func (p *Proxy) OnProxyError(callback func(details js.M)) {
 	p.o.Get("onProxyError").Call("addListener", callback)
 }

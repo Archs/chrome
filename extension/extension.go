@@ -29,8 +29,8 @@ func GetURL(path string) {
 	extension.Call("getURL", path)
 }
 
-// GetViews returns an array of the JavaScript 'window' objects for each of the pages running inside the current extension.
-// Fix this and the other functions to return windows.Window objects instead of js.Object or whatever else
+// GetViews returns an array of the JavaScript 'window' js.Ms for each of the pages running inside the current extension.
+// Fix this and the other functions to return windows.Window js.Ms instead of js.Object or whatever else
 func GetViews(fetchProperties js.M) []windows.Window {
 	wins := []windows.Window{}
 	windowObjs := extension.Call("getViews", fetchProperties)
@@ -41,14 +41,14 @@ func GetViews(fetchProperties js.M) []windows.Window {
 	return wins
 }
 
-// GetBackgroundPage returns the JavaScript 'window' object for the background page running inside
+// GetBackgroundPage returns the JavaScript 'window' js.M for the background page running inside
 // the current extension. Returns null if the extension has no background page.
 func GetBackgroundPage() windows.Window {
 	return windows.Window{Object: *extension.Call("getBackgroundPage")}
 }
 
-// GetExtensionTabs returns an array of the JavaScript 'window' objects for each of the tabs running inside
-// the current extension. If windowId is specified, returns only the 'window' objects of tabs attached to the specified window.
+// GetExtensionTabs returns an array of the JavaScript 'window' js.Ms for each of the tabs running inside
+// the current extension. If windowId is specified, returns only the 'window' js.Ms of tabs attached to the specified window.
 func GetExtensionTabs(windowId int) []windows.Window {
 	wins := []windows.Window{}
 	windowObjs := extension.Call("getExtensionTabs", windowId)

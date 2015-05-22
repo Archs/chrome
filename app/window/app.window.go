@@ -268,7 +268,7 @@ func (a *AppWindow) Hide() {
 // function	getBounds
 // Deprecated since Chrome 36. Use innerBounds or outerBounds.
 
-// Get the window's inner bounds as a ContentBounds object.
+// Get the window's inner bounds as a ContentBounds js.M.
 
 // Returns	ContentBounds.
 // function	setBounds
@@ -306,7 +306,7 @@ func (a *AppWindow) Hide() {
 // Parameters
 // boolean	wantAllKeys
 // Window	contentWindow
-// The JavaScript 'window' object for the created child.
+// The JavaScript 'window' js.M for the created child.
 
 // string	id
 // Since Chrome 33.

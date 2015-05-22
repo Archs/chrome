@@ -12,19 +12,19 @@ type Notification struct {
 
 type NotificationOptions struct {
 	*js.Object
-	Type           string   `js:"type"`
-	IconUrl        string   `js:"iconUrl"`
-	AppIconMaskUrl string   `js:"appIconMaskUrl"`
-	Title          string   `js:"title"`
-	Message        string   `js:"message"`
-	ContextMessage string   `js:"contextMessage"`
-	Priority       int      `js:"priority"`
-	EventTime      int64    `js:"eventTime"`
-	Buttons        []Object `js:"buttons"`
-	ImageUrl       string   `js:"imageUrl"`
-	Items          []Object `js:"items"`
-	Progress       int      `js:"progress"`
-	IsClickable    bool     `js:"isClickable"`
+	Type           string `js:"type"`
+	IconUrl        string `js:"iconUrl"`
+	AppIconMaskUrl string `js:"appIconMaskUrl"`
+	Title          string `js:"title"`
+	Message        string `js:"message"`
+	ContextMessage string `js:"contextMessage"`
+	Priority       int    `js:"priority"`
+	EventTime      int64  `js:"eventTime"`
+	Buttons        []js.M `js:"buttons"`
+	ImageUrl       string `js:"imageUrl"`
+	Items          []js.M `js:"items"`
+	Progress       int    `js:"progress"`
+	IsClickable    bool   `js:"isClickable"`
 }
 
 /*
@@ -47,7 +47,7 @@ func (n *Notification) Clear(notificationId string, callback func(notificationId
 }
 
 // GetAll retrieves all the notifications.
-func (n *Notification) GetAll(callback func(notifications Object)) {
+func (n *Notification) GetAll(callback func(notifications js.M)) {
 	n.o.Call("getAll", callback)
 }
 
