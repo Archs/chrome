@@ -1,10 +1,13 @@
-package chrome
+package management
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+	"github.com/gopherjs/gopherjs/js"
+)
 
-type Management struct {
-	o *js.Object
-}
+var (
+	management = chrome.Get("management")
+)
 
 /*
 * Types
@@ -46,66 +49,66 @@ type ExtensionInfo struct {
  */
 
 // GetAll returns a list of information about installed extensions and apps.
-func (m *Management) GetAll(callback func(result []ExtensionInfo)) {
-	m.o.Call("getAll", callback)
+func GetAll(callback func(result []ExtensionInfo)) {
+	management.Call("getAll", callback)
 }
 
 // Get returns information about the installed extension, app, or theme that has the given ID.
-func (m *Management) Get(id string, callback func(result ExtensionInfo)) {
-	m.o.Call("get", id, callback)
+func Get(id string, callback func(result ExtensionInfo)) {
+	management.Call("get", id, callback)
 }
 
 // GetSelf returns information about the calling extension, app, or theme. Note:
 // This function can be used without requesting the 'management' permission in the manifest.
-func (m *Management) GetSelf(callback func(result ExtensionInfo)) {
-	m.o.Call("getSelf", callback)
+func GetSelf(callback func(result ExtensionInfo)) {
+	management.Call("getSelf", callback)
 }
 
 // GetPermissionWarningsById returns a list of permission warnings for the given extension id.
-func (m *Management) GetPermissionWarningsById(id string, callback func(permissionWarnings []string)) {
-	m.o.Call("getPermissionWarningsById", id, callback)
+func GetPermissionWarningsById(id string, callback func(permissionWarnings []string)) {
+	management.Call("getPermissionWarningsById", id, callback)
 }
 
 // GetPermissionWarningsByManifest returns a list of permission warnings for the given extension manifest
 // string. Note: This function can be used without requesting the 'management' permission in the manifest.
-func (m *Management) GetPermissionWarningsByManifest(manifestStr string, callback func(permissionWarnings []string)) {
-	m.o.Call("getPermissionWarningsByManifest", manifestStr, callback)
+func GetPermissionWarningsByManifest(manifestStr string, callback func(permissionWarnings []string)) {
+	management.Call("getPermissionWarningsByManifest", manifestStr, callback)
 }
 
 // SetEnabled enables or disables an app or extension.
-func (m *Management) SetEnabled(id, string, enabled bool, callback func()) {
-	m.o.Call("setEnabled", id, enabled, callback)
+func SetEnabled(id, string, enabled bool, callback func()) {
+	management.Call("setEnabled", id, enabled, callback)
 }
 
 // Uninstall uninstalls a currently installed app or extension.
-func (m *Management) Uninstall(id string, options js.M, callback func()) {
-	m.o.Call("uninstall", id, options, callback)
+func Uninstall(id string, options js.M, callback func()) {
+	management.Call("uninstall", id, options, callback)
 }
 
 // UninstallSelf uninstalls the calling extension. Note: This function can be used without
 // requesting the 'management' permission in the manifest.
-func (m *Management) UninstallSelf(options js.M, callback func()) {
-	m.o.Call("uninstallSelf", options, callback)
+func UninstallSelf(options js.M, callback func()) {
+	management.Call("uninstallSelf", options, callback)
 }
 
 // LaunchApp launches an application.
-func (m *Management) LaunchApp(id string, callback func()) {
-	m.o.Call("launchApp", id, callback)
+func LaunchApp(id string, callback func()) {
+	management.Call("launchApp", id, callback)
 }
 
 // CreateAppShortcut display options to create shortcuts for an app. On Mac, only packaged app shortcuts can be created.
-func (m *Management) CreateAppShortcut(id string, callback func()) {
-	m.o.Call("createAppShortcut", id, callback)
+func CreateAppShortcut(id string, callback func()) {
+	management.Call("createAppShortcut", id, callback)
 }
 
 // SetLaunchType set the launch type of an app.
-func (m *Management) SetLaunchType(id string, launchType string, callback func()) {
-	m.o.Call("setLaunchType", id, launchType, callback)
+func SetLaunchType(id string, launchType string, callback func()) {
+	management.Call("setLaunchType", id, launchType, callback)
 }
 
 // GenerateAppForLink generate an app for a URL. Returns the generated bookmark app.
-func (m *Management) GenerateAppForLink(url string, title string, callback func(result ExtensionInfo)) {
-	m.o.Call("generateAppForLink", url, title, callback)
+func GenerateAppForLink(url string, title string, callback func(result ExtensionInfo)) {
+	management.Call("generateAppForLink", url, title, callback)
 }
 
 /*
@@ -113,21 +116,21 @@ func (m *Management) GenerateAppForLink(url string, title string, callback func(
  */
 
 // OnInstalled fired when an app or extension has been installed.
-func (m *Management) OnInstalled(callback func(info ExtensionInfo)) {
-	m.o.Get("onInstalled").Call("addListener", callback)
+func OnInstalled(callback func(info ExtensionInfo)) {
+	management.Get("onInstalled").Call("addListener", callback)
 }
 
 // OnUninstalled fired when an app or extension has been uninstalled.
-func (m *Management) OnUninstalled(callback func(id string)) {
-	m.o.Get("onUninstalled").Call("addListener", callback)
+func OnUninstalled(callback func(id string)) {
+	management.Get("onUninstalled").Call("addListener", callback)
 }
 
 // OnEnabled fired when an app or extension has been enabled.
-func (m *Management) OnEnabled(callback func(info ExtensionInfo)) {
-	m.o.Get("onEnabled").Call("addListener", callback)
+func OnEnabled(callback func(info ExtensionInfo)) {
+	management.Get("onEnabled").Call("addListener", callback)
 }
 
 // OnDisabled fired when an app or extension has been disabled.
-func (m *Management) OnDisabled(callback func(info ExtensionInfo)) {
-	m.o.Get("onDisabled").Call("addListener", callback)
+func OnDisabled(callback func(info ExtensionInfo)) {
+	management.Get("onDisabled").Call("addListener", callback)
 }
