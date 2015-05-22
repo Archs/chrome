@@ -1,10 +1,12 @@
-package chrome
+package idle
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+)
 
-type Idle struct {
-	o *js.Object
-}
+var (
+	idle = chrome.Get("idle")
+)
 
 /*
 * Methods
@@ -12,14 +14,14 @@ type Idle struct {
 
 // QueryState returns "locked" if the system is locked, "idle" if the user has not generated any
 // input for a specified number of seconds, or "active" otherwise.
-func (i *Idle) QueryState(detectionIntervalInSeconds int, callback func(newState string)) {
-	i.o.Call("queryState", detectionIntervalInSeconds, callback)
+func QueryState(detectionIntervalInSeconds int, callback func(newState string)) {
+	idle.Call("queryState", detectionIntervalInSeconds, callback)
 }
 
 // SetDetectionInterval sets the interval, in seconds, used to determine when the system is in an idle
 //  state for onStateChanged events. The default interval is 60 seconds.
-func (i *Idle) SetDetectionInterval(intervalInSeconds int) {
-	i.o.Call("setDetectionInterval", intervalInSeconds)
+func SetDetectionInterval(intervalInSeconds int) {
+	idle.Call("setDetectionInterval", intervalInSeconds)
 }
 
 /*
@@ -30,6 +32,6 @@ func (i *Idle) SetDetectionInterval(intervalInSeconds int) {
 // "locked" if the screen is locked or the screensaver activates, "idle" if the system is unlocked and the
 // user has not generated any input for a specified number of seconds, and "active" when the user generates
 // input on an idle system.
-func (i *Idle) OnStateChanged(callback func(newState string)) {
-	i.o.Get("onStateChanged").Call("addListener", callback)
+func OnStateChanged(callback func(newState string)) {
+	idle.Get("onStateChanged").Call("addListener", callback)
 }
