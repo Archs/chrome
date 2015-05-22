@@ -1,10 +1,13 @@
-package chrome
+package tabCapture
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+	"github.com/gopherjs/gopherjs/js"
+)
 
-type TabCapture struct {
-	o *js.Object
-}
+var (
+	tabCapture = chrome.Get("tabCapture")
+)
 
 /*
 * Types
@@ -29,15 +32,15 @@ type MediaStreamConstraint struct {
 // Capture captures the visible area of the currently active tab. Capture can only be started on
 // the currently active tab after the extension has been invoked. Capture is maintained across page
 // navigations within the tab, and stops when the tab is closed, or the media stream is closed by the extension.
-func (t *TabCapture) Capture(options js.M, callback func(stream interface{})) {
-	t.o.Call("capture", options, callback)
+func Capture(options js.M, callback func(stream interface{})) {
+	tabCapture.Call("capture", options, callback)
 }
 
 // GetCapturedTabs returns a list of tabs that have requested capture or are being captured, i.e. status
 // != stopped and status != error. This allows extensions to inform the user that there is an existing tab
 // capture that would prevent a new tab capture from succeeding (or to prevent redundant requests for the same tab).
-func (t *TabCapture) GetCapturedTabs(callback func(result []CaptureInfo)) {
-	t.o.Call("getCapturedTabs", callback)
+func GetCapturedTabs(callback func(result []CaptureInfo)) {
+	tabCapture.Call("getCapturedTabs", callback)
 }
 
 /*
@@ -46,6 +49,6 @@ func (t *TabCapture) GetCapturedTabs(callback func(result []CaptureInfo)) {
 
 // OnStatusChanged event fired when the capture status of a tab changes. This allows extension authors to keep track
 // of the capture status of tabs to keep UI elements like page actions and infobars in sync.
-func (t *TabCapture) OnStatusChanged(callback func(info CaptureInfo)) {
-	t.o.Get("onStatusChanged").Call("addListener", callback)
+func OnStatusChanged(callback func(info CaptureInfo)) {
+	tabCapture.Get("onStatusChanged").Call("addListener", callback)
 }
