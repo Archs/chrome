@@ -75,6 +75,11 @@ func (u *udpConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	}
 }
 
+func (c *udpConn) Read(b []byte) error {
+	_, _, err := c.ReadFrom(b)
+	return err
+}
+
 func (c *udpConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	ch := make(chan struct{})
 	n := 0
