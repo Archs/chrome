@@ -11,7 +11,7 @@ import (
 
 var (
 	// scoket map
-	udpMap = make(map[int]*udpConn)
+	udpMap = make(map[int]*UDPConn)
 )
 
 type udpPacket struct {
@@ -34,7 +34,7 @@ func newPacketErr(err error) *udpPacket {
 	}
 }
 
-type udpConn struct {
+type UDPConn struct {
 	socketId int
 	// data buffer
 	ch           chan *udpPacket
@@ -44,9 +44,9 @@ type udpConn struct {
 	raddr *net.UDPAddr
 }
 
-func newUdpConn(socketId int) *udpConn {
+func newUDPConn(socketId int) *UDPConn {
 	// println("creating conn, id:", socketId)
-	conn := &udpConn{
+	conn := &UDPConn{
 		socketId: socketId,
 		ch:       make(chan *udpPacket, 10),
 	}
@@ -55,7 +55,22 @@ func newUdpConn(socketId int) *udpConn {
 	return conn
 }
 
-func (u *udpConn) ReadFrom(b []byte) (int, net.Addr, error) {
+// DialUDP connects to the remote address raddr on the network net, which must be "udp", "udp4", or "udp6". If laddr is not nil, it is used as the local address for the connection.
+func DialUDP(net string, laddr, raddr *net.UDPAddr) (*UDPConn, error) {
+	return nil, nil
+}
+
+// ListenMulticastUDP listens for incoming multicast UDP packets addressed to the group address gaddr on ifi, which specifies the interface to join. ListenMulticastUDP uses default multicast interface if ifi is nil.
+// func ListenMulticastUDP(net string, ifi *Interface, gaddr *UDPAddr) (*UDPConn, error) {
+// 	reutrn nil, nil
+// }
+
+// ListenUDP listens for incoming UDP packets addressed to the local address laddr. Net must be "udp", "udp4", or "udp6". If laddr has a port of 0, ListenUDP will choose an available port. The LocalAddr method of the returned UDPConn can be used to discover the port. The returned connection's ReadFrom and WriteTo methods can be used to receive and send UDP packets with per-packet addressing.
+func ListenUDP(net string, laddr *net.UDPAddr) (*UDPConn, error) {
+	return nil, nil
+}
+
+func (u *UDPConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	for {
 		select {
 		case p := <-u.ch:
@@ -75,12 +90,12 @@ func (u *udpConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	}
 }
 
-func (c *udpConn) Read(b []byte) error {
+func (c *UDPConn) Read(b []byte) error {
 	_, _, err := c.ReadFrom(b)
 	return err
 }
 
-func (c *udpConn) WriteTo(b []byte, addr net.Addr) (int, error) {
+func (c *UDPConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	ch := make(chan struct{})
 	n := 0
 	raddr, err := net.ResolveUDPAddr(addr.Network(), addr.String())
@@ -102,13 +117,13 @@ func (c *udpConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 // Write writes data to the connection.
 // Write can be made to time out and return a Error with Timeout() == true
 // after a fixed time limit; see SetDeadline and SetWriteDeadline.
-func (c *udpConn) Write(b []byte) (n int, err error) {
+func (c *UDPConn) Write(b []byte) (n int, err error) {
 	return c.WriteTo(b, c.raddr)
 }
 
 // Close closes the connection.
 // Any blocked Read or Write operations will be unblocked and return errors.
-func (c *udpConn) Close() error {
+func (c *UDPConn) Close() error {
 	// println("conn.Close called")
 	udp.Close(c.socketId)
 	delete(udpMap, c.socketId)
@@ -116,7 +131,7 @@ func (c *udpConn) Close() error {
 }
 
 // LocalAddr returns the local network address.
-func (c *udpConn) LocalAddr() net.Addr {
+func (c *UDPConn) LocalAddr() net.Addr {
 	var addr net.Addr
 	ch := make(chan struct{})
 	udp.GetInfo(c.socketId, func(si *sockets.SocketInfo) {
@@ -131,7 +146,7 @@ func (c *udpConn) LocalAddr() net.Addr {
 }
 
 // RemoteAddr returns the remote network address.
-func (c *udpConn) RemoteAddr() net.Addr {
+func (c *UDPConn) RemoteAddr() net.Addr {
 	return nil
 }
 
@@ -148,7 +163,7 @@ func (c *udpConn) RemoteAddr() net.Addr {
 // the deadline after successful Read or Write calls.
 //
 // A zero value for t means I/O operations will not time out.
-func (c *udpConn) SetDeadline(t time.Time) error {
+func (c *UDPConn) SetDeadline(t time.Time) error {
 	c.SetReadDeadline(t)
 	c.SetWriteDeadline(t)
 	return nil
@@ -156,7 +171,7 @@ func (c *udpConn) SetDeadline(t time.Time) error {
 
 // SetReadDeadline sets the deadline for future Read calls.
 // A zero value for t means Read will not time out.
-func (c *udpConn) SetReadDeadline(t time.Time) error {
+func (c *UDPConn) SetReadDeadline(t time.Time) error {
 	c.readDeadline = t
 	return nil
 }
@@ -165,7 +180,7 @@ func (c *udpConn) SetReadDeadline(t time.Time) error {
 // Even if write times out, it may return n > 0, indicating that
 // some of the data was successfully written.
 // A zero value for t means Write will not time out.
-func (c *udpConn) SetWriteDeadline(t time.Time) error {
+func (c *UDPConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
