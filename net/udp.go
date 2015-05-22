@@ -77,7 +77,12 @@ func (u *udpConn) ReadFrom(b []byte) (int, net.Addr, error) {
 
 func (c *udpConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	ch := make(chan struct{})
-	udp.Send(c.socketId, b, addr.IP.String(), addr.Port, func(si *udp.SendInfo) {
+	n := 0
+	raddr, err := net.ResolveUDPAddr(addr.Network(), addr.String())
+	if err != nil {
+		return 0, nil
+	}
+	udp.Send(c.socketId, b, raddr.IP.String(), raddr.Port, func(si *udp.SendInfo) {
 		if si.ResultCode < 0 {
 			err = fmt.Errorf("socket write failed: %d", si.ResultCode)
 		} else {
@@ -86,7 +91,7 @@ func (c *udpConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 		close(ch)
 	})
 	<-ch
-	return
+	return n, nil
 }
 
 // Write writes data to the connection.
