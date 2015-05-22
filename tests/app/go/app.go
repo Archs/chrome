@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/Archs/chrome/net"
-	"github.com/Archs/chrome/net/sockets"
-	"github.com/Archs/chrome/net/sockets/tcp"
-	"github.com/Archs/chrome/net/sockets/tcpserver"
+	"github.com/Archs/chrome/api/sockets"
+	"github.com/Archs/chrome/api/sockets/tcp"
+	"github.com/Archs/chrome/api/sockets/tcpserver"
+	"github.com/Archs/chrome/sim/net"
 	"github.com/Archs/gopherjs-ko"
 	QUnit "github.com/fabioberger/qunit"
 	"github.com/gopherjs/gopherjs/js"
