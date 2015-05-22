@@ -1,4 +1,4 @@
-package chrome
+package system
 
 import "github.com/gopherjs/gopherjs/js"
 
