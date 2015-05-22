@@ -6,12 +6,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gopherjs/gopherjs/js"
 	"net/url"
 
 	"honnef.co/go/js/dom"
 	"honnef.co/go/js/xhr"
 
-	"github.com/fabioberger/chrome"
+	"github.com/Archs/chrome/api/tabs"
 )
 
 var (
@@ -24,15 +25,15 @@ var (
  * @param {func(string)} callback - called when the URL of the current tab
  *   is found.
  **/
-func getCurrentTabUrl(c *chrome.Chrome, callback func(string)) {
+func getCurrentTabUrl(callback func(string)) {
 	// Query filter to be passed to chrome.tabs.query - see
 	// https://developer.chrome.com/extensions/tabs#method-query
-	queryInfo := chrome.Object{
+	queryInfo := js.M{
 		"active":        true,
 		"currentWindow": true,
 	}
 
-	c.Tabs.Query(queryInfo, func(tabs []chrome.Tab) {
+	tabs.Query(queryInfo, func(tabs []tabs.Tab) {
 		// c.Tabs.Query invokes the callback with a list of tabs that match the
 		// query. When the popup is opened, there is certainly a window and at least
 		// one tab, so we can safely assume that |tabs| is a non-empty array.
@@ -106,8 +107,7 @@ func renderStatus(statusText string) {
 }
 
 func main() {
-	c := chrome.NewChrome()
-	getCurrentTabUrl(c, func(url string) {
+	getCurrentTabUrl(func(url string) {
 		// Put the image URL in Google search.
 		renderStatus("Performing Google Image search for " + url)
 
