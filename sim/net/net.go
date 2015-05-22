@@ -3,9 +3,9 @@ package net
 import (
 	"errors"
 	"fmt"
-	"github.com/Archs/chrome/sockets"
-	"github.com/Archs/chrome/sockets/tcp"
-	"github.com/Archs/chrome/sockets/tcpserver"
+	"github.com/Archs/chrome/api/sockets"
+	"github.com/Archs/chrome/api/sockets/tcp"
+	"github.com/Archs/chrome/api/sockets/tcpserver"
 	"net"
 	"strings"
 	"time"
