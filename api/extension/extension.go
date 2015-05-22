@@ -2,7 +2,7 @@ package extension
 
 import (
 	"github.com/Archs/chrome"
-	"github.com/Archs/chrome/windows"
+	"github.com/Archs/chrome/api/windows"
 	"github.com/gopherjs/gopherjs/js"
 )
 

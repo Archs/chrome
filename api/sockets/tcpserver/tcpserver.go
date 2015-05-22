@@ -1,7 +1,7 @@
 package tcpserver
 
 import (
-	"github.com/Archs/chrome/sockets"
+	"github.com/Archs/chrome/api/sockets"
 	"github.com/gopherjs/gopherjs/js"
 )
 

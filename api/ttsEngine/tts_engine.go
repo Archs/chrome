@@ -2,7 +2,7 @@ package ttsEngine
 
 import (
 	"github.com/Archs/chrome"
-	"github.com/Archs/chrome/tts"
+	"github.com/Archs/chrome/api/tts"
 	"github.com/gopherjs/gopherjs/js"
 )
 
