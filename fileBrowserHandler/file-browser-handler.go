@@ -1,12 +1,15 @@
 // WARNING: FileBrowserHandler only works on Chrome OS
 
-package chrome
+package fileBrowserHandler
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+	"github.com/gopherjs/gopherjs/js"
+)
 
-type FileBrowserHandler struct {
-	o *js.Object
-}
+var (
+	fileBrowserHandler = chrome.Get("fileBrowserHandler")
+)
 
 /*
 * Types
@@ -23,8 +26,8 @@ type FileHandlerExecuteEventDetails struct {
  */
 
 /* SelectFile prompts user to select file path under which file should be saved. When the file is selected, file access permission required to use the file (read, write and create) are granted to the caller. The file will not actually get created during the function call, so function caller must ensure its existence before using it. The function has to be invoked with a user gesture. */
-func (f *FileBrowserHandler) SelectFile(selectionParams Object, callback func(result Object)) {
-	f.o.Call("selectFile", selectionParams, callback)
+func SelectFile(selectionParams js.M, callback func(result js.M)) {
+	fileBrowserHandler.Call("selectFile", selectionParams, callback)
 }
 
 /*
@@ -32,6 +35,6 @@ func (f *FileBrowserHandler) SelectFile(selectionParams Object, callback func(re
  */
 
 // OnExecute fired when file system action is executed from ChromeOS file browser.
-func (f *FileBrowserHandler) OnExecute(callback func(id string, details FileHandlerExecuteEventDetails)) {
-	f.o.Get("onExecute").Call("addListener", callback)
+func OnExecute(callback func(id string, details FileHandlerExecuteEventDetails)) {
+	fileBrowserHandler.Get("onExecute").Call("addListener", callback)
 }
