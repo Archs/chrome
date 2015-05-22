@@ -1,10 +1,13 @@
-package chrome
+package debugger
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+	"github.com/gopherjs/gopherjs/js"
+)
 
-type Debugger struct {
-	o *js.Object
-}
+var (
+	debugger = chrome.Get("debugger")
+)
 
 /*
 * Types
@@ -34,23 +37,23 @@ type TargetInfo struct {
  */
 
 // Attach attaches debugger to the given target.
-func (d *Debugger) Attach(target Debugee, requiredVersion string, callback func()) {
-	d.o.Call("attach", target, requiredVersion, callback)
+func Attach(target Debugee, requiredVersion string, callback func()) {
+	debugger.Call("attach", target, requiredVersion, callback)
 }
 
 // Detach detaches debugger from the given target.
-func (d *Debugger) Detach(target Debugee, callback func()) {
-	d.o.Call("detach", target, callback)
+func Detach(target Debugee, callback func()) {
+	debugger.Call("detach", target, callback)
 }
 
 // SendCommand sends given command to the debugging target.
-func (d *Debugger) SendCommand(target Debugee, method string, commandParams Object, callback func(result Object)) {
-	d.o.Call("sendCommand", target, method, commandParams, callback)
+func SendCommand(target Debugee, method string, commandParams js.M, callback func(result js.M)) {
+	debugger.Call("sendCommand", target, method, commandParams, callback)
 }
 
 // GetTargets returns the list of available debug targets.
-func (d *Debugger) GetTargets(callback func(result []TargetInfo)) {
-	d.o.Call("getTargets", callback)
+func GetTargets(callback func(result []TargetInfo)) {
+	debugger.Call("getTargets", callback)
 }
 
 /*
@@ -58,12 +61,12 @@ func (d *Debugger) GetTargets(callback func(result []TargetInfo)) {
  */
 
 // OnEvent fired whenever debugging target issues instrumentation event.
-func (d *Debugger) OnEvent(callback func(source Debugee, method string, params Object)) {
-	d.o.Get("onEvent").Call("addListener", callback)
+func OnEvent(callback func(source Debugee, method string, params js.M)) {
+	debugger.Get("onEvent").Call("addListener", callback)
 }
 
 // OnDetach fired when browser terminates debugging session for the tab. This happens when
 // either the tab is being closed or Chrome DevTools is being invoked for the attached tab.
-func (d *Debugger) OnDetach(callback func(source Debugee, reason string)) {
-	d.o.Get("onDetach").Call("addListener", callback)
+func OnDetach(callback func(source Debugee, reason string)) {
+	debugger.Get("onDetach").Call("addListener", callback)
 }
