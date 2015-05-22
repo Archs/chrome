@@ -1,10 +1,13 @@
-package chrome
+package tts
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+	"github.com/gopherjs/gopherjs/js"
+)
 
-type Tts struct {
-	o *js.Object
-}
+var (
+	tts = chrome.Get("tts")
+)
 
 /*
 * Types
@@ -32,34 +35,34 @@ type TtsVoice struct {
  */
 
 // Speak speaks text using a text-to-speech engine.
-func (t *Tts) Speak(utterance string, options js.M, callback func()) {
-	t.o.Call("speak", utterance, options, callback)
+func Speak(utterance string, options js.M, callback func()) {
+	tts.Call("speak", utterance, options, callback)
 }
 
 // Stop stops any current speech and flushes the queue of any pending utterances.
 // In addition, if speech was paused, it will now be un-paused for the next call to speak.
-func (t *Tts) Stop() {
-	t.o.Call("stop")
+func Stop() {
+	tts.Call("stop")
 }
 
 // Pause pauses speech synthesis, potentially in the middle of an utterance.
 // A call to resume or stop will un-pause speech.
-func (t *Tts) Pause() {
-	t.o.Call("pause")
+func Pause() {
+	tts.Call("pause")
 }
 
 // Resume if speech was paused, resumes speaking where it left off.
-func (t *Tts) Resume() {
-	t.o.Call("resume")
+func Resume() {
+	tts.Call("resume")
 }
 
 // IsSpeaking checks whether the engine is currently speaking. On Mac OS X, the result
 // is true whenever the system speech engine is speaking, even if the speech wasn't initiated by Chrome.
-func (t *Tts) IsSpeaking(callback func(speaking bool)) {
-	t.o.Call("isSpeaking", callback)
+func IsSpeaking(callback func(speaking bool)) {
+	tts.Call("isSpeaking", callback)
 }
 
 // GetVoices gets an array of all available voices.
-func (t *Tts) GetVoices(callback func(voices []TtsVoice)) {
-	t.o.Call("getVoices", callback)
+func GetVoices(callback func(voices []TtsVoice)) {
+	tts.Call("getVoices", callback)
 }
