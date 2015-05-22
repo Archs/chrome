@@ -1,6 +1,7 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 	"github.com/Archs/chrome/net/sockets"
 	"github.com/Archs/chrome/net/sockets/udp"
@@ -11,19 +12,36 @@ import (
 var (
 	// scoket map
 	udpMap = make(map[int]*udpConn)
-	// listen chan
-	listenerMap = make(map[int]*udpListener)
 )
 
 type udpPacket struct {
-	data          []byte
-	remoteAddress net.Addr
+	data       []byte
+	remoteAddr net.Addr
+	err        error
+}
+
+func newPacket(data []byte, addr net.Addr) *udpPacket {
+	return &udpPacket{
+		data:       data,
+		remoteAddr: addr,
+		err:        nil,
+	}
+}
+
+func newPacketErr(err error) *udpPacket {
+	return &udpPacket{
+		err: err,
+	}
 }
 
 type udpConn struct {
-	socketId     int
+	socketId int
+	// data buffer
 	ch           chan *udpPacket
 	readDeadline time.Time
+	// addr
+	laddr *net.UDPAddr
+	raddr *net.UDPAddr
 }
 
 func newUdpConn(socketId int) *udpConn {
@@ -38,32 +56,28 @@ func newUdpConn(socketId int) *udpConn {
 }
 
 func (u *udpConn) ReadFrom(b []byte) (int, net.Addr, error) {
-	var p *udpPacket
-	select {
-	case p = <-u.ch:
-		copy(b, p.data)
-		return len(p.data), p.remoteAddress, nil
-	default:
-		if !u.readDeadline.IsZero() && time.Now().After(u.readDeadline) {
-			return 0, nil, &timeoutError{
-				OpError: net.OpError{
-					Op:  "udp readfrom",
-					Err: errors.New("timeout"),
-				},
-				isTimeOut: true,
+	for {
+		select {
+		case p := <-u.ch:
+			copy(b, p.data)
+			return len(p.data), p.remoteAddr, nil
+		case <-time.Tick(10 * time.Microsecond):
+			if !u.readDeadline.IsZero() && time.Now().After(u.readDeadline) {
+				return 0, nil, &timeoutError{
+					OpError: net.OpError{
+						Op:  "udp readfrom",
+						Err: errors.New("timeout"),
+					},
+					isTimeOut: true,
+				}
 			}
 		}
-		time.Sleep(time.Microsecond * 10)
 	}
-
 }
 
-// Write writes data to the connection.
-// Write can be made to time out and return a Error with Timeout() == true
-// after a fixed time limit; see SetDeadline and SetWriteDeadline.
-func (c *udpConn) Write(b []byte) (n int, err error) {
+func (c *udpConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 	ch := make(chan struct{})
-	udp.Send(c.socketId, b, func(si *udp.SendInfo) {
+	udp.Send(c.socketId, b, addr.IP.String(), addr.Port, func(si *udp.SendInfo) {
 		if si.ResultCode < 0 {
 			err = fmt.Errorf("socket write failed: %d", si.ResultCode)
 		} else {
@@ -73,6 +87,13 @@ func (c *udpConn) Write(b []byte) (n int, err error) {
 	})
 	<-ch
 	return
+}
+
+// Write writes data to the connection.
+// Write can be made to time out and return a Error with Timeout() == true
+// after a fixed time limit; see SetDeadline and SetWriteDeadline.
+func (c *udpConn) Write(b []byte) (n int, err error) {
+	return c.WriteTo(b, c.raddr)
 }
 
 // Close closes the connection.
@@ -89,7 +110,7 @@ func (c *udpConn) LocalAddr() net.Addr {
 	var addr net.Addr
 	ch := make(chan struct{})
 	udp.GetInfo(c.socketId, func(si *sockets.SocketInfo) {
-		addr = &net.udpAddr{
+		addr = &net.UDPAddr{
 			IP:   net.ParseIP(si.LocalAddress),
 			Port: si.LocalPort,
 		}
@@ -101,17 +122,41 @@ func (c *udpConn) LocalAddr() net.Addr {
 
 // RemoteAddr returns the remote network address.
 func (c *udpConn) RemoteAddr() net.Addr {
-	var addr net.Addr
-	ch := make(chan struct{})
-	udp.GetInfo(c.socketId, func(si *sockets.SocketInfo) {
-		addr = &net.udpAddr{
-			IP:   net.ParseIP(si.PeerAddress),
-			Port: si.PeerPort,
-		}
-		close(ch)
-	})
-	<-ch
-	return addr
+	return nil
+}
+
+// SetDeadline sets the read and write deadlines associated
+// with the connection. It is equivalent to calling both
+// SetReadDeadline and SetWriteDeadline.
+//
+// A deadline is an absolute time after which I/O operations
+// fail with a timeout (see type Error) instead of
+// blocking. The deadline applies to all future I/O, not just
+// the immediately following call to Read or Write.
+//
+// An idle timeout can be implemented by repeatedly extending
+// the deadline after successful Read or Write calls.
+//
+// A zero value for t means I/O operations will not time out.
+func (c *udpConn) SetDeadline(t time.Time) error {
+	c.SetReadDeadline(t)
+	c.SetWriteDeadline(t)
+	return nil
+}
+
+// SetReadDeadline sets the deadline for future Read calls.
+// A zero value for t means Read will not time out.
+func (c *udpConn) SetReadDeadline(t time.Time) error {
+	c.readDeadline = t
+	return nil
+}
+
+// SetWriteDeadline sets the deadline for future Write calls.
+// Even if write times out, it may return n > 0, indicating that
+// some of the data was successfully written.
+// A zero value for t means Write will not time out.
+func (c *udpConn) SetWriteDeadline(t time.Time) error {
+	return nil
 }
 
 func init() {
@@ -121,8 +166,12 @@ func init() {
 			// println("udpMap length:", len(udpMap))
 			conn, ok := udpMap[ri.SocketId]
 			if ok {
-				// println("ri.Data", ri.Data)
-				conn.readBuf.Write(ri.Data)
+				addr, err := net.ResolveUDPAddr("udp", ri.RemoteAddress)
+				if err != nil {
+					conn.ch <- newPacket(ri.Data, addr)
+				} else {
+					conn.ch <- newPacketErr(err)
+				}
 			} else {
 				println("no conn found", udpMap)
 			}
@@ -131,23 +180,7 @@ func init() {
 	udp.OnReceiveError(func(re *udp.ReceiveError) {
 		conn, ok := udpMap[re.SocketId]
 		if ok {
-			conn.readError = fmt.Errorf("recv error code %d", re.ResultCode)
+			conn.ch <- newPacketErr(fmt.Errorf("recv error code %d", re.ResultCode))
 		}
-	})
-	udpserver.OnAccept(func(ai *udpserver.AcceptInfo) {
-		// println("udpserver accept:", ai.ClientSocketId)
-		cl, ok := listenerMap[ai.SocketId]
-		if !ok {
-			return
-		}
-		udp.SetPaused(ai.ClientSocketId, false)
-		cl.ch <- ai.ClientSocketId
-	})
-	udpserver.OnAcceptError(func(ae *udpserver.AcceptError) {
-		cl, ok := listenerMap[ae.SocketId]
-		if !ok {
-			return
-		}
-		cl.err = fmt.Errorf("accept error: %d", ae.ResultCode)
 	})
 }
