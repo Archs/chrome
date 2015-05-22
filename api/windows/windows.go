@@ -2,7 +2,7 @@ package windows
 
 import (
 	"github.com/Archs/chrome"
-	"github.com/Archs/chrome/tabs"
+	"github.com/Archs/chrome/api/tabs"
 	"github.com/gopherjs/gopherjs/js"
 )
 

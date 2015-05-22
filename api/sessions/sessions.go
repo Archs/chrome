@@ -2,8 +2,8 @@ package sessions
 
 import (
 	"github.com/Archs/chrome"
-	"github.com/Archs/chrome/tabs"
-	"github.com/Archs/chrome/windows"
+	"github.com/Archs/chrome/api/tabs"
+	"github.com/Archs/chrome/api/windows"
 	"github.com/gopherjs/gopherjs/js"
 )
 

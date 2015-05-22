@@ -2,6 +2,7 @@ package browserAction
 
 import (
 	"github.com/Archs/chrome"
+	"github.com/Archs/chrome/api/tabs"
 	"github.com/gopherjs/gopherjs/js"
 )
 
