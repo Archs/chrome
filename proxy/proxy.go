@@ -1,20 +1,15 @@
-package chrome
+package proxy
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+	"github.com/gopherjs/gopherjs/js"
+)
 
-type Proxy struct {
-	o        *js.Object
-	Settings *js.Object
-}
-
-func NewProxy(proxyObj *js.Object) *Proxy {
-	p := new(Proxy)
-	p.o = proxyObj
-	if proxyObj.String() != "undefined" {
-		p.Settings = proxyObj.Get("settings")
-	}
-	return p
-}
+var (
+	proxy = chrome.Get("proxy")
+	// TODO full fill this
+	Settings = proxy.Get("settings")
+)
 
 /*
 * Types
@@ -56,6 +51,6 @@ type ProxyConfig struct {
  */
 
 // OnProxyError notifies about proxy errors.
-func (p *Proxy) OnProxyError(callback func(details js.M)) {
-	p.o.Get("onProxyError").Call("addListener", callback)
+func OnProxyError(callback func(details js.M)) {
+	proxy.Get("onProxyError").Call("addListener", callback)
 }
