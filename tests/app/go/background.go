@@ -1,16 +1,17 @@
 package main
 
 import (
-	"github.com/Archs/chrome"
+	"github.com/Archs/chrome/api/app/runtime"
+	"github.com/Archs/chrome/api/app/window"
+	"github.com/gopherjs/gopherjs/js"
 )
 
 func main() {
-	c := chrome.NewChrome()
-	c.App.Runtime.OnLaunched(func(data *chrome.LaunchData) {
-		c.App.Window.CreateM("app.html", chrome.Object{
-			"bounds": chrome.Object{
+	runtime.OnLaunched(func(data *runtime.LaunchData) {
+		window.CreateM("app.html", js.M{
+			"bounds": js.M{
 				"width":  400,
 				"height": 500,
-			}}, func(*chrome.AppWindow) {})
+			}}, func(*window.AppWindow) {})
 	})
 }

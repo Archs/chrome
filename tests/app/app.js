@@ -5756,7 +5756,7 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 	return $pkg;
 })();
 $packages["strings"] = (function() {
-	var $pkg = {}, $init, errors, js, io, unicode, utf8, IndexByte;
+	var $pkg = {}, $init, errors, js, io, unicode, utf8, IndexByte, HasPrefix;
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	io = $packages["io"];
@@ -5767,6 +5767,11 @@ $packages["strings"] = (function() {
 		return $parseInt(s.indexOf($global.String.fromCharCode(c))) >> 0;
 	};
 	$pkg.IndexByte = IndexByte;
+	HasPrefix = function(s, prefix) {
+		var $ptr, prefix, s;
+		return s.length >= prefix.length && s.substring(0, prefix.length) === prefix;
+	};
+	$pkg.HasPrefix = HasPrefix;
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -5781,7 +5786,7 @@ $packages["strings"] = (function() {
 	return $pkg;
 })();
 $packages["time"] = (function() {
-	var $pkg = {}, $init, errors, js, nosync, runtime, strings, syscall, runtimeTimer, ParseError, Timer, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, sliceType$2, ptrType, structType, chanType, funcType, arrayType, sliceType$3, arrayType$1, arrayType$2, ptrType$1, chanType$1, chanType$2, funcType$1, ptrType$2, ptrType$3, ptrType$4, ptrType$6, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, unitMap, months, days, daysBefore, utcLoc, utcLoc_ptr, localLoc, localLoc_ptr, localOnce, zoneinfo, badData, zoneDirs, _map, _key, _tuple, _r, initLocal, runtimeNano, now, Sleep, startTimer, stopTimer, startsWithLowerCase, nextStdChunk, match, lookup, appendUint, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, ParseDuration, when, NewTimer, sendTime, absWeekday, absClock, fmtFrac, fmtInt, absDate, Now, Unix, isLeap, norm, Date, div, FixedZone;
+	var $pkg = {}, $init, errors, js, nosync, runtime, strings, syscall, runtimeTimer, ParseError, Timer, Ticker, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, sliceType$2, ptrType, structType, chanType, funcType, arrayType, sliceType$3, arrayType$1, arrayType$2, ptrType$1, chanType$1, chanType$2, funcType$1, ptrType$2, ptrType$3, ptrType$4, ptrType$5, ptrType$6, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, unitMap, months, days, daysBefore, utcLoc, utcLoc_ptr, localLoc, localLoc_ptr, localOnce, zoneinfo, badData, zoneDirs, _map, _key, _tuple, _r, initLocal, runtimeNano, now, Sleep, startTimer, stopTimer, startsWithLowerCase, nextStdChunk, match, lookup, appendUint, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, ParseDuration, when, NewTimer, sendTime, NewTicker, Tick, absWeekday, absClock, fmtFrac, fmtInt, absDate, Now, Unix, isLeap, norm, Date, div, FixedZone;
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	nosync = $packages["github.com/gopherjs/gopherjs/nosync"];
@@ -5825,6 +5830,16 @@ $packages["time"] = (function() {
 		this.Message = Message_;
 	});
 	Timer = $pkg.Timer = $newType(0, $kindStruct, "time.Timer", "Timer", "time", function(C_, r_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.C = chanType$2.nil;
+			this.r = new runtimeTimer.ptr();
+			return;
+		}
+		this.C = C_;
+		this.r = r_;
+	});
+	Ticker = $pkg.Ticker = $newType(0, $kindStruct, "time.Ticker", "Ticker", "time", function(C_, r_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.C = chanType$2.nil;
@@ -5911,6 +5926,7 @@ $packages["time"] = (function() {
 	ptrType$2 = $ptrType(js.Object);
 	ptrType$3 = $ptrType(ParseError);
 	ptrType$4 = $ptrType(Timer);
+	ptrType$5 = $ptrType(Ticker);
 	ptrType$6 = $ptrType(Time);
 	initLocal = function() {
 		var $ptr, d, i, j, s;
@@ -7019,6 +7035,31 @@ $packages["time"] = (function() {
 		_selection = $select([[$assertType(c, chanType$1), Now()], []]);
 		/* */ if ($f === undefined) { $f = { $blk: sendTime }; } $f.$ptr = $ptr; $f._selection = _selection; $f.c = c; $f.seq = seq; $f.$r = $r; return $f;
 	};
+	NewTicker = function(d) {
+		var $ptr, c, d, t;
+		if ((d.$high < 0 || (d.$high === 0 && d.$low <= 0))) {
+			$panic(errors.New("non-positive interval for NewTicker"));
+		}
+		c = new chanType$1(1);
+		t = new Ticker.ptr(c, new runtimeTimer.ptr(0, when(d), new $Int64(d.$high, d.$low), sendTime, c, null, false));
+		startTimer(t.r);
+		return t;
+	};
+	$pkg.NewTicker = NewTicker;
+	Ticker.ptr.prototype.Stop = function() {
+		var $ptr, t;
+		t = this;
+		stopTimer(t.r);
+	};
+	Ticker.prototype.Stop = function() { return this.$val.Stop(); };
+	Tick = function(d) {
+		var $ptr, d;
+		if ((d.$high < 0 || (d.$high === 0 && d.$low <= 0))) {
+			return chanType$2.nil;
+		}
+		return NewTicker(d).C;
+	};
+	$pkg.Tick = Tick;
 	Time.ptr.prototype.After = function(u) {
 		var $ptr, t, u, x, x$1, x$2, x$3;
 		t = $clone(this, Time);
@@ -8092,6 +8133,7 @@ $packages["time"] = (function() {
 	Location.prototype.lookupName = function(name, unix) { return this.$val.lookupName(name, unix); };
 	ptrType$3.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
 	ptrType$4.methods = [{prop: "Stop", name: "Stop", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Reset", name: "Reset", pkg: "", typ: $funcType([Duration], [$Bool], false)}];
+	ptrType$5.methods = [{prop: "Stop", name: "Stop", pkg: "", typ: $funcType([], [], false)}];
 	Time.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Format", name: "Format", pkg: "", typ: $funcType([$String], [$String], false)}, {prop: "After", name: "After", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "Before", name: "Before", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "Equal", name: "Equal", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "IsZero", name: "IsZero", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "abs", name: "abs", pkg: "time", typ: $funcType([], [$Uint64], false)}, {prop: "locabs", name: "locabs", pkg: "time", typ: $funcType([], [$String, $Int, $Uint64], false)}, {prop: "Date", name: "Date", pkg: "", typ: $funcType([], [$Int, Month, $Int], false)}, {prop: "Year", name: "Year", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Month", name: "Month", pkg: "", typ: $funcType([], [Month], false)}, {prop: "Day", name: "Day", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Weekday", name: "Weekday", pkg: "", typ: $funcType([], [Weekday], false)}, {prop: "ISOWeek", name: "ISOWeek", pkg: "", typ: $funcType([], [$Int, $Int], false)}, {prop: "Clock", name: "Clock", pkg: "", typ: $funcType([], [$Int, $Int, $Int], false)}, {prop: "Hour", name: "Hour", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Minute", name: "Minute", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Second", name: "Second", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Nanosecond", name: "Nanosecond", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "YearDay", name: "YearDay", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Add", name: "Add", pkg: "", typ: $funcType([Duration], [Time], false)}, {prop: "Sub", name: "Sub", pkg: "", typ: $funcType([Time], [Duration], false)}, {prop: "AddDate", name: "AddDate", pkg: "", typ: $funcType([$Int, $Int, $Int], [Time], false)}, {prop: "date", name: "date", pkg: "time", typ: $funcType([$Bool], [$Int, Month, $Int, $Int], false)}, {prop: "UTC", name: "UTC", pkg: "", typ: $funcType([], [Time], false)}, {prop: "Local", name: "Local", pkg: "", typ: $funcType([], [Time], false)}, {prop: "In", name: "In", pkg: "", typ: $funcType([ptrType$1], [Time], false)}, {prop: "Location", name: "Location", pkg: "", typ: $funcType([], [ptrType$1], false)}, {prop: "Zone", name: "Zone", pkg: "", typ: $funcType([], [$String, $Int], false)}, {prop: "Unix", name: "Unix", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "UnixNano", name: "UnixNano", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "MarshalBinary", name: "MarshalBinary", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "GobEncode", name: "GobEncode", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "MarshalJSON", name: "MarshalJSON", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "MarshalText", name: "MarshalText", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "Truncate", name: "Truncate", pkg: "", typ: $funcType([Duration], [Time], false)}, {prop: "Round", name: "Round", pkg: "", typ: $funcType([Duration], [Time], false)}];
 	ptrType$6.methods = [{prop: "UnmarshalBinary", name: "UnmarshalBinary", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "GobDecode", name: "GobDecode", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalJSON", name: "UnmarshalJSON", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalText", name: "UnmarshalText", pkg: "", typ: $funcType([sliceType$3], [$error], false)}];
 	Month.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}];
@@ -8101,6 +8143,7 @@ $packages["time"] = (function() {
 	runtimeTimer.init([{prop: "i", name: "i", pkg: "time", typ: $Int32, tag: ""}, {prop: "when", name: "when", pkg: "time", typ: $Int64, tag: ""}, {prop: "period", name: "period", pkg: "time", typ: $Int64, tag: ""}, {prop: "f", name: "f", pkg: "time", typ: funcType$1, tag: ""}, {prop: "arg", name: "arg", pkg: "time", typ: $emptyInterface, tag: ""}, {prop: "timeout", name: "timeout", pkg: "time", typ: ptrType$2, tag: ""}, {prop: "active", name: "active", pkg: "time", typ: $Bool, tag: ""}]);
 	ParseError.init([{prop: "Layout", name: "Layout", pkg: "", typ: $String, tag: ""}, {prop: "Value", name: "Value", pkg: "", typ: $String, tag: ""}, {prop: "LayoutElem", name: "LayoutElem", pkg: "", typ: $String, tag: ""}, {prop: "ValueElem", name: "ValueElem", pkg: "", typ: $String, tag: ""}, {prop: "Message", name: "Message", pkg: "", typ: $String, tag: ""}]);
 	Timer.init([{prop: "C", name: "C", pkg: "", typ: chanType$2, tag: ""}, {prop: "r", name: "r", pkg: "time", typ: runtimeTimer, tag: ""}]);
+	Ticker.init([{prop: "C", name: "C", pkg: "", typ: chanType$2, tag: ""}, {prop: "r", name: "r", pkg: "time", typ: runtimeTimer, tag: ""}]);
 	Time.init([{prop: "sec", name: "sec", pkg: "time", typ: $Int64, tag: ""}, {prop: "nsec", name: "nsec", pkg: "time", typ: $Int32, tag: ""}, {prop: "loc", name: "loc", pkg: "time", typ: ptrType$1, tag: ""}]);
 	Location.init([{prop: "name", name: "name", pkg: "time", typ: $String, tag: ""}, {prop: "zone", name: "zone", pkg: "time", typ: sliceType$1, tag: ""}, {prop: "tx", name: "tx", pkg: "time", typ: sliceType$2, tag: ""}, {prop: "cacheStart", name: "cacheStart", pkg: "time", typ: $Int64, tag: ""}, {prop: "cacheEnd", name: "cacheEnd", pkg: "time", typ: $Int64, tag: ""}, {prop: "cacheZone", name: "cacheZone", pkg: "time", typ: ptrType, tag: ""}]);
 	zone.init([{prop: "name", name: "name", pkg: "time", typ: $String, tag: ""}, {prop: "offset", name: "offset", pkg: "time", typ: $Int, tag: ""}, {prop: "isDST", name: "isDST", pkg: "time", typ: $Bool, tag: ""}]);
@@ -17861,10 +17904,10 @@ $packages["fmt"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-$packages["github.com/Archs/chrome/net/sockets"] = (function() {
+$packages["github.com/Archs/chrome/api/sockets"] = (function() {
 	var $pkg = {}, $init, js, SocketInfo, CreateInfo, ptrType, sockets;
 	js = $packages["github.com/gopherjs/gopherjs/js"];
-	SocketInfo = $pkg.SocketInfo = $newType(0, $kindStruct, "sockets.SocketInfo", "SocketInfo", "github.com/Archs/chrome/net/sockets", function(Object_, SocketId_, Persistent_, Name_, BufferSize_, Paused_, Connected_, LocalAddress_, LocalPort_, PeerAddress_, PeerPort_) {
+	SocketInfo = $pkg.SocketInfo = $newType(0, $kindStruct, "sockets.SocketInfo", "SocketInfo", "github.com/Archs/chrome/api/sockets", function(Object_, SocketId_, Persistent_, Name_, BufferSize_, Paused_, Connected_, LocalAddress_, LocalPort_, PeerAddress_, PeerPort_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -17892,7 +17935,7 @@ $packages["github.com/Archs/chrome/net/sockets"] = (function() {
 		this.PeerAddress = PeerAddress_;
 		this.PeerPort = PeerPort_;
 	});
-	CreateInfo = $pkg.CreateInfo = $newType(0, $kindStruct, "sockets.CreateInfo", "CreateInfo", "github.com/Archs/chrome/net/sockets", function(Object_, SocketId_) {
+	CreateInfo = $pkg.CreateInfo = $newType(0, $kindStruct, "sockets.CreateInfo", "CreateInfo", "github.com/Archs/chrome/api/sockets", function(Object_, SocketId_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -17915,11 +17958,11 @@ $packages["github.com/Archs/chrome/net/sockets"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-$packages["github.com/Archs/chrome/net/sockets/tcp"] = (function() {
+$packages["github.com/Archs/chrome/api/sockets/tcp"] = (function() {
 	var $pkg = {}, $init, sockets, js, SendInfo, ReceiveInfo, ReceiveError, ptrType, funcType, funcType$2, ptrType$2, funcType$3, sliceType, ptrType$3, funcType$4, ptrType$4, funcType$5, ptrType$5, funcType$6, ptrType$6, tcp, CreateEx, Connect, Send, OnReceive, OnReceiveError, SetPaused, Close, GetInfo;
-	sockets = $packages["github.com/Archs/chrome/net/sockets"];
+	sockets = $packages["github.com/Archs/chrome/api/sockets"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
-	SendInfo = $pkg.SendInfo = $newType(0, $kindStruct, "tcp.SendInfo", "SendInfo", "github.com/Archs/chrome/net/sockets/tcp", function(Object_, ResultCode_, BytesSent_) {
+	SendInfo = $pkg.SendInfo = $newType(0, $kindStruct, "tcp.SendInfo", "SendInfo", "github.com/Archs/chrome/api/sockets/tcp", function(Object_, ResultCode_, BytesSent_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -17931,7 +17974,7 @@ $packages["github.com/Archs/chrome/net/sockets/tcp"] = (function() {
 		this.ResultCode = ResultCode_;
 		this.BytesSent = BytesSent_;
 	});
-	ReceiveInfo = $pkg.ReceiveInfo = $newType(0, $kindStruct, "tcp.ReceiveInfo", "ReceiveInfo", "github.com/Archs/chrome/net/sockets/tcp", function(Object_, SocketId_, dat_, Data_) {
+	ReceiveInfo = $pkg.ReceiveInfo = $newType(0, $kindStruct, "tcp.ReceiveInfo", "ReceiveInfo", "github.com/Archs/chrome/api/sockets/tcp", function(Object_, SocketId_, dat_, Data_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -17945,7 +17988,7 @@ $packages["github.com/Archs/chrome/net/sockets/tcp"] = (function() {
 		this.dat = dat_;
 		this.Data = Data_;
 	});
-	ReceiveError = $pkg.ReceiveError = $newType(0, $kindStruct, "tcp.ReceiveError", "ReceiveError", "github.com/Archs/chrome/net/sockets/tcp", function(Object_, SocketId_, ResultCode_) {
+	ReceiveError = $pkg.ReceiveError = $newType(0, $kindStruct, "tcp.ReceiveError", "ReceiveError", "github.com/Archs/chrome/api/sockets/tcp", function(Object_, SocketId_, ResultCode_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -18017,7 +18060,7 @@ $packages["github.com/Archs/chrome/net/sockets/tcp"] = (function() {
 	};
 	$pkg.GetInfo = GetInfo;
 	SendInfo.init([{prop: "Object", name: "", pkg: "", typ: ptrType$6, tag: ""}, {prop: "ResultCode", name: "ResultCode", pkg: "", typ: $Int, tag: "js:\"resultCode\""}, {prop: "BytesSent", name: "BytesSent", pkg: "", typ: $Int, tag: "js:\"bytesSent\""}]);
-	ReceiveInfo.init([{prop: "Object", name: "", pkg: "", typ: ptrType$6, tag: ""}, {prop: "SocketId", name: "SocketId", pkg: "", typ: $Int, tag: "js:\"socketId\""}, {prop: "dat", name: "dat", pkg: "github.com/Archs/chrome/net/sockets/tcp", typ: ptrType$6, tag: "js:\"data\""}, {prop: "Data", name: "Data", pkg: "", typ: sliceType, tag: ""}]);
+	ReceiveInfo.init([{prop: "Object", name: "", pkg: "", typ: ptrType$6, tag: ""}, {prop: "SocketId", name: "SocketId", pkg: "", typ: $Int, tag: "js:\"socketId\""}, {prop: "dat", name: "dat", pkg: "github.com/Archs/chrome/api/sockets/tcp", typ: ptrType$6, tag: "js:\"data\""}, {prop: "Data", name: "Data", pkg: "", typ: sliceType, tag: ""}]);
 	ReceiveError.init([{prop: "Object", name: "", pkg: "", typ: ptrType$6, tag: ""}, {prop: "SocketId", name: "SocketId", pkg: "", typ: $Int, tag: "js:\"socketId\""}, {prop: "ResultCode", name: "ResultCode", pkg: "", typ: $Int, tag: "js:\"resultCode\""}]);
 	$init = function() {
 		$pkg.$init = function() {};
@@ -18030,11 +18073,11 @@ $packages["github.com/Archs/chrome/net/sockets/tcp"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-$packages["github.com/Archs/chrome/net/sockets/tcpserver"] = (function() {
+$packages["github.com/Archs/chrome/api/sockets/tcpserver"] = (function() {
 	var $pkg = {}, $init, sockets, js, AcceptInfo, AcceptError, ptrType, funcType, funcType$1, ptrType$1, funcType$2, ptrType$2, funcType$3, ptrType$3, funcType$4, ptrType$4, tcp, Create, Listen, OnAccept, OnAcceptError, Close, GetInfo;
-	sockets = $packages["github.com/Archs/chrome/net/sockets"];
+	sockets = $packages["github.com/Archs/chrome/api/sockets"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
-	AcceptInfo = $pkg.AcceptInfo = $newType(0, $kindStruct, "tcpserver.AcceptInfo", "AcceptInfo", "github.com/Archs/chrome/net/sockets/tcpserver", function(Object_, SocketId_, ClientSocketId_) {
+	AcceptInfo = $pkg.AcceptInfo = $newType(0, $kindStruct, "tcpserver.AcceptInfo", "AcceptInfo", "github.com/Archs/chrome/api/sockets/tcpserver", function(Object_, SocketId_, ClientSocketId_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -18046,7 +18089,7 @@ $packages["github.com/Archs/chrome/net/sockets/tcpserver"] = (function() {
 		this.SocketId = SocketId_;
 		this.ClientSocketId = ClientSocketId_;
 	});
-	AcceptError = $pkg.AcceptError = $newType(0, $kindStruct, "tcpserver.AcceptError", "AcceptError", "github.com/Archs/chrome/net/sockets/tcpserver", function(Object_, SocketId_, ResultCode_) {
+	AcceptError = $pkg.AcceptError = $newType(0, $kindStruct, "tcpserver.AcceptError", "AcceptError", "github.com/Archs/chrome/api/sockets/tcpserver", function(Object_, SocketId_, ResultCode_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.Object = null;
@@ -18106,6 +18149,120 @@ $packages["github.com/Archs/chrome/net/sockets/tcpserver"] = (function() {
 		$r = sockets.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = js.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		tcp = $global.chrome.sockets.tcpServer;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.$init = $init;
+	return $pkg;
+})();
+$packages["github.com/Archs/chrome/api/sockets/udp"] = (function() {
+	var $pkg = {}, $init, sockets, js, SendInfo, ReceiveInfo, ReceiveError, ptrType, funcType, funcType$2, ptrType$2, funcType$3, sliceType, ptrType$3, funcType$4, ptrType$4, funcType$5, ptrType$5, funcType$7, ptrType$6, udp, CreateEx, Bind, Send, OnReceive, OnReceiveError, Close, GetInfo;
+	sockets = $packages["github.com/Archs/chrome/api/sockets"];
+	js = $packages["github.com/gopherjs/gopherjs/js"];
+	SendInfo = $pkg.SendInfo = $newType(0, $kindStruct, "udp.SendInfo", "SendInfo", "github.com/Archs/chrome/api/sockets/udp", function(Object_, ResultCode_, BytesSent_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.Object = null;
+			this.ResultCode = 0;
+			this.BytesSent = 0;
+			return;
+		}
+		this.Object = Object_;
+		this.ResultCode = ResultCode_;
+		this.BytesSent = BytesSent_;
+	});
+	ReceiveInfo = $pkg.ReceiveInfo = $newType(0, $kindStruct, "udp.ReceiveInfo", "ReceiveInfo", "github.com/Archs/chrome/api/sockets/udp", function(Object_, SocketId_, dat_, RemoteAddress_, RemotePort_, Data_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.Object = null;
+			this.SocketId = 0;
+			this.dat = null;
+			this.RemoteAddress = "";
+			this.RemotePort = "";
+			this.Data = sliceType.nil;
+			return;
+		}
+		this.Object = Object_;
+		this.SocketId = SocketId_;
+		this.dat = dat_;
+		this.RemoteAddress = RemoteAddress_;
+		this.RemotePort = RemotePort_;
+		this.Data = Data_;
+	});
+	ReceiveError = $pkg.ReceiveError = $newType(0, $kindStruct, "udp.ReceiveError", "ReceiveError", "github.com/Archs/chrome/api/sockets/udp", function(Object_, SocketId_, ResultCode_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.Object = null;
+			this.SocketId = 0;
+			this.ResultCode = 0;
+			return;
+		}
+		this.Object = Object_;
+		this.SocketId = SocketId_;
+		this.ResultCode = ResultCode_;
+	});
+	ptrType = $ptrType(sockets.CreateInfo);
+	funcType = $funcType([ptrType], [], false);
+	funcType$2 = $funcType([$Int], [], false);
+	ptrType$2 = $ptrType(SendInfo);
+	funcType$3 = $funcType([ptrType$2], [], false);
+	sliceType = $sliceType($Uint8);
+	ptrType$3 = $ptrType(ReceiveInfo);
+	funcType$4 = $funcType([ptrType$3], [], false);
+	ptrType$4 = $ptrType(ReceiveError);
+	funcType$5 = $funcType([ptrType$4], [], false);
+	ptrType$5 = $ptrType(sockets.SocketInfo);
+	funcType$7 = $funcType([ptrType$5], [], false);
+	ptrType$6 = $ptrType(js.Object);
+	CreateEx = function(callback) {
+		var $ptr, callback;
+		udp.create($externalize(callback, funcType));
+	};
+	$pkg.CreateEx = CreateEx;
+	Bind = function(socketId, address, port, callback) {
+		var $ptr, address, callback, port, socketId;
+		udp.bind(socketId, $externalize(address, $String), port, $externalize(callback, funcType$2));
+	};
+	$pkg.Bind = Bind;
+	Send = function(socketId, data, address, port, callback) {
+		var $ptr, address, callback, data, port, socketId;
+		udp.send(socketId, js.NewArrayBuffer(data), $externalize(address, $String), port, $externalize(callback, funcType$3));
+	};
+	$pkg.Send = Send;
+	OnReceive = function(callback) {
+		var $ptr, callback;
+		udp.onReceive.addListener($externalize((function $b(ri) {
+			var $ptr, ri, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; ri = $f.ri; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			ri.Data = $assertType($internalize(new ($global.Uint8Array)(ri.Object.data), $emptyInterface), sliceType);
+			$r = callback(ri); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f.ri = ri; $f.$s = $s; $f.$r = $r; return $f;
+		}), funcType$4));
+	};
+	$pkg.OnReceive = OnReceive;
+	OnReceiveError = function(callback) {
+		var $ptr, callback;
+		udp.onReceiveError.addListener($externalize(callback, funcType$5));
+	};
+	$pkg.OnReceiveError = OnReceiveError;
+	Close = function(socketId) {
+		var $ptr, socketId;
+		udp.close(socketId);
+	};
+	$pkg.Close = Close;
+	GetInfo = function(socketId, callback) {
+		var $ptr, callback, socketId;
+		udp.getInfo(socketId, $externalize(callback, funcType$7));
+	};
+	$pkg.GetInfo = GetInfo;
+	SendInfo.init([{prop: "Object", name: "", pkg: "", typ: ptrType$6, tag: ""}, {prop: "ResultCode", name: "ResultCode", pkg: "", typ: $Int, tag: "js:\"resultCode\""}, {prop: "BytesSent", name: "BytesSent", pkg: "", typ: $Int, tag: "js:\"bytesSent\""}]);
+	ReceiveInfo.init([{prop: "Object", name: "", pkg: "", typ: ptrType$6, tag: ""}, {prop: "SocketId", name: "SocketId", pkg: "", typ: $Int, tag: "js:\"socketId\""}, {prop: "dat", name: "dat", pkg: "github.com/Archs/chrome/api/sockets/udp", typ: ptrType$6, tag: "js:\"data\""}, {prop: "RemoteAddress", name: "RemoteAddress", pkg: "", typ: $String, tag: "js:\"remoteAddress\""}, {prop: "RemotePort", name: "RemotePort", pkg: "", typ: $String, tag: "js:\"remotePort\""}, {prop: "Data", name: "Data", pkg: "", typ: sliceType, tag: ""}]);
+	ReceiveError.init([{prop: "Object", name: "", pkg: "", typ: ptrType$6, tag: ""}, {prop: "SocketId", name: "SocketId", pkg: "", typ: $Int, tag: "js:\"socketId\""}, {prop: "ResultCode", name: "ResultCode", pkg: "", typ: $Int, tag: "js:\"resultCode\""}]);
+	$init = function() {
+		$pkg.$init = function() {};
+		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		$r = sockets.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = js.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		udp = $global.chrome.sockets.udp;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
@@ -19804,7 +19961,7 @@ $packages["math/rand"] = (function() {
 	return $pkg;
 })();
 $packages["net"] = (function() {
-	var $pkg = {}, $init, errors, io, rand, os, runtime, sort, sync, atomic, syscall, time, Dialer, DNSError, dnsConn, dnsConfig, dnsHeader, dnsQuestion, dnsRR_Header, dnsRR, dnsRR_CNAME, dnsRR_HINFO, dnsRR_MB, dnsRR_MG, dnsRR_MINFO, dnsRR_MR, dnsRR_MX, dnsRR_NS, dnsRR_PTR, dnsRR_SOA, dnsRR_TXT, dnsRR_SRV, dnsRR_A, dnsRR_AAAA, dnsMsgHdr, dnsMsg, fdMutex, pollDesc, netFD, Interface, Flags, IP, IPMask, IPNet, ParseError, IPAddr, netaddr, addrList, HardwareAddr, Addr, Conn, conn, Error, OpError, temporary, timeout, timeoutError, AddrError, UnknownNetworkError, InvalidAddrError, DNSConfigError, writerOnly, file, call, singleflight, singleflightResult, sockaddr, TCPAddr, TCPConn, UDPAddr, UDPConn, racer, racer$1, structType, chanType, ptrType, structType$1, sliceType, mapType, structType$2, sliceType$1, ptrType$1, sliceType$2, ptrType$2, ptrType$3, ptrType$4, ptrType$6, sliceType$3, ptrType$7, ptrType$8, ptrType$9, sliceType$4, ptrType$10, ptrType$11, ptrType$12, ptrType$13, chanType$3, chanType$4, ptrType$14, ptrType$15, ptrType$16, ptrType$17, ptrType$18, ptrType$19, ptrType$20, ptrType$21, ptrType$22, ptrType$23, ptrType$24, ptrType$25, ptrType$26, ptrType$27, ptrType$29, ptrType$30, sliceType$5, sliceType$6, ptrType$31, ptrType$32, arrayType, ptrType$33, ptrType$38, ptrType$39, ptrType$40, ptrType$41, ptrType$42, ptrType$43, ptrType$44, ptrType$45, arrayType$1, arrayType$2, ptrType$46, ptrType$47, ptrType$48, chanType$5, chanType$6, sliceType$10, arrayType$3, ptrType$52, funcType$1, ptrType$53, ptrType$54, ptrType$55, ptrType$56, ptrType$57, ptrType$58, ptrType$59, ptrType$60, ptrType$61, ptrType$62, ptrType$63, funcType$2, ptrType$64, ptrType$65, ptrType$66, ptrType$67, funcType$3, chanType$7, ptrType$71, mapType$1, cfg, onceLoadConfig, rr_mk, serverInit, tryDupCloexec, tryDupCloexec_ptr, hostsPath, hosts, errInvalidInterface, errInvalidInterfaceIndex, errInvalidInterfaceName, errNoSuchInterface, errNoSuchMulticastInterface, flagNames, v4InV6Prefix, classAMask, classBMask, classCMask, supportsIPv4, supportsIPv6, supportsIPv4map, errNoSuitableAddress, lookupGroup, listenerBacklog, errMissingAddress, errTimeout, errClosing, noDeadline, threadLimit, services, servicesError, onceReadServices, _map, _key, _map$2, _key$2, _map$3, _key$3, sysInit, probeIPv4Stack, probeIPv6Stack, maxListenerBacklog, cgoLookupPort, cgoLookupIP, answer, isDomainName, exchange, tryOneName, convertRR_A, convertRR_AAAA, loadDefaultConfig, loadConfig, lookup, goLookupIP, dnsReadConfig, hasPrefix, packDomainName, unpackDomainName, packStruct, unpackStruct, printStruct, packRR, unpackRR, runtime_Semacquire, runtime_Semrelease, runtimeNano, runtime_pollServerInit, runtime_pollOpen, runtime_pollClose, runtime_pollWait, runtime_pollWaitCanceled, runtime_pollReset, runtime_pollSetDeadline, runtime_pollUnblock, convertErr, setDeadlineImpl, chkReadErr, dupCloseOnExec, dupCloseOnExecOld, closesocket, readHosts, lookupStaticHost, InterfaceByIndex, interfaceByIndex, InterfaceByName, interfaceTable, newLink, linkFlags, interfaceAddrTable, addrTable, newAddr, interfaceMulticastAddrTable, parseProcNetIGMP, parseProcNetIGMP6, IPv4, IPv4Mask, CIDRMask, isZeros, allFF, ipEmptyString, bytesEqual, simpleMaskLength, networkNumberAndMask, parseIPv4, parseIPv6, ParseIP, init, firstFavoriteAddr, firstSupportedAddr, ipv4only, ipv6only, SplitHostPort, splitHostZone, JoinHostPort, resolveInternetAddr, zoneToString, zoneToInt, ipToSockaddr, lookupIPMerge, lookupIPReturn, lookupIPDeadline, LookupPort, lookupIP, lookupPort, genericReadFrom, open, byteIndex, countAnyByte, splitAtBytes, getFields, dtoi, xtoi, xtoi2, itoa, itod, appendHex, count, last, parsePort, readServices, goLookupPort, sendFile, boolint, setReadBuffer, setWriteBuffer, setKeepAlive, setLinger, ResolveTCPAddr, setNoDelay, setKeepAlivePeriod;
+	var $pkg = {}, $init, errors, io, rand, os, runtime, sort, sync, atomic, syscall, time, Dialer, DNSError, dnsConn, dnsConfig, dnsHeader, dnsQuestion, dnsRR_Header, dnsRR, dnsRR_CNAME, dnsRR_HINFO, dnsRR_MB, dnsRR_MG, dnsRR_MINFO, dnsRR_MR, dnsRR_MX, dnsRR_NS, dnsRR_PTR, dnsRR_SOA, dnsRR_TXT, dnsRR_SRV, dnsRR_A, dnsRR_AAAA, dnsMsgHdr, dnsMsg, fdMutex, pollDesc, netFD, Interface, Flags, IP, IPMask, IPNet, ParseError, IPAddr, netaddr, addrList, HardwareAddr, Addr, Conn, conn, Error, OpError, temporary, timeout, timeoutError, AddrError, UnknownNetworkError, InvalidAddrError, DNSConfigError, writerOnly, file, call, singleflight, singleflightResult, sockaddr, TCPAddr, TCPConn, UDPAddr, UDPConn, racer, racer$1, structType, chanType, ptrType, structType$1, sliceType, mapType, structType$2, sliceType$1, ptrType$1, sliceType$2, ptrType$2, ptrType$3, ptrType$4, ptrType$6, sliceType$3, ptrType$7, ptrType$8, ptrType$9, sliceType$4, ptrType$10, ptrType$11, ptrType$12, ptrType$13, chanType$3, chanType$4, ptrType$14, ptrType$15, ptrType$16, ptrType$17, ptrType$18, ptrType$19, ptrType$20, ptrType$21, ptrType$22, ptrType$23, ptrType$24, ptrType$25, ptrType$26, ptrType$27, ptrType$29, ptrType$30, sliceType$5, sliceType$6, ptrType$31, ptrType$32, arrayType, ptrType$33, ptrType$38, ptrType$39, ptrType$40, ptrType$41, ptrType$42, ptrType$43, ptrType$44, ptrType$45, arrayType$1, arrayType$2, ptrType$46, ptrType$47, ptrType$48, chanType$5, chanType$6, sliceType$10, arrayType$3, ptrType$52, funcType$1, ptrType$53, ptrType$54, ptrType$55, ptrType$56, ptrType$57, ptrType$58, ptrType$59, ptrType$60, ptrType$61, ptrType$62, ptrType$63, funcType$2, ptrType$64, ptrType$65, ptrType$66, ptrType$67, funcType$3, chanType$7, ptrType$71, mapType$1, cfg, onceLoadConfig, rr_mk, serverInit, tryDupCloexec, tryDupCloexec_ptr, hostsPath, hosts, errInvalidInterface, errInvalidInterfaceIndex, errInvalidInterfaceName, errNoSuchInterface, errNoSuchMulticastInterface, flagNames, v4InV6Prefix, classAMask, classBMask, classCMask, supportsIPv4, supportsIPv6, supportsIPv4map, errNoSuitableAddress, lookupGroup, listenerBacklog, errMissingAddress, errTimeout, errClosing, noDeadline, threadLimit, services, servicesError, onceReadServices, _map, _key, _map$2, _key$2, _map$3, _key$3, sysInit, probeIPv4Stack, probeIPv6Stack, maxListenerBacklog, cgoLookupPort, cgoLookupIP, answer, isDomainName, exchange, tryOneName, convertRR_A, convertRR_AAAA, loadDefaultConfig, loadConfig, lookup, goLookupIP, dnsReadConfig, hasPrefix, packDomainName, unpackDomainName, packStruct, unpackStruct, printStruct, packRR, unpackRR, runtime_Semacquire, runtime_Semrelease, runtimeNano, runtime_pollServerInit, runtime_pollOpen, runtime_pollClose, runtime_pollWait, runtime_pollWaitCanceled, runtime_pollReset, runtime_pollSetDeadline, runtime_pollUnblock, convertErr, setDeadlineImpl, chkReadErr, dupCloseOnExec, dupCloseOnExecOld, closesocket, readHosts, lookupStaticHost, InterfaceByIndex, interfaceByIndex, InterfaceByName, interfaceTable, newLink, linkFlags, interfaceAddrTable, addrTable, newAddr, interfaceMulticastAddrTable, parseProcNetIGMP, parseProcNetIGMP6, IPv4, IPv4Mask, CIDRMask, isZeros, allFF, ipEmptyString, bytesEqual, simpleMaskLength, networkNumberAndMask, parseIPv4, parseIPv6, ParseIP, init, firstFavoriteAddr, firstSupportedAddr, ipv4only, ipv6only, SplitHostPort, splitHostZone, JoinHostPort, resolveInternetAddr, zoneToString, zoneToInt, ipToSockaddr, lookupIPMerge, lookupIPReturn, lookupIPDeadline, LookupPort, lookupIP, lookupPort, genericReadFrom, open, byteIndex, countAnyByte, splitAtBytes, getFields, dtoi, xtoi, xtoi2, itoa, itod, appendHex, count, last, parsePort, readServices, goLookupPort, sendFile, boolint, setReadBuffer, setWriteBuffer, setKeepAlive, setLinger, ResolveTCPAddr, setNoDelay, setKeepAlivePeriod, ResolveUDPAddr;
 	errors = $packages["errors"];
 	io = $packages["io"];
 	rand = $packages["math/rand"];
@@ -25570,6 +25727,26 @@ $packages["net"] = (function() {
 		return a;
 	};
 	UDPAddr.prototype.toAddr = function() { return this.$val.toAddr(); };
+	ResolveUDPAddr = function(net, addr) {
+		var $ptr, _r, _r$1, _ref, _tuple, a, addr, err, net, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _ref = $f._ref; _tuple = $f._tuple; a = $f.a; addr = $f.addr; err = $f.err; net = $f.net; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		_ref = net;
+		if (_ref === "udp" || _ref === "udp4" || _ref === "udp6") {
+		} else if (_ref === "") {
+			net = "udp";
+		} else {
+			return [ptrType$3.nil, new UnknownNetworkError(net)];
+		}
+		_r = resolveInternetAddr(net, addr, noDeadline); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_tuple = _r; a = _tuple[0]; err = _tuple[1];
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return [ptrType$3.nil, err];
+		}
+		_r$1 = a.toAddr(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		return [$assertType(_r$1, ptrType$3), $ifaceNil];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: ResolveUDPAddr }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._ref = _ref; $f._tuple = _tuple; $f.a = a; $f.addr = addr; $f.err = err; $f.net = net; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.ResolveUDPAddr = ResolveUDPAddr;
 	UDPAddr.ptr.prototype.sockaddr = function(family) {
 		var $ptr, _r, a, family, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; a = $f.a; family = $f.family; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -25931,32 +26108,51 @@ $packages["net"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-$packages["github.com/Archs/chrome/net"] = (function() {
-	var $pkg = {}, $init, bytes, errors, fmt, sockets, tcp, tcpserver, net, sync, time, crConn, crListener, timeoutError, ptrType, sliceType, ptrType$1, structType, chanType, ptrType$2, sliceType$1, chanType$1, ptrType$3, ptrType$4, ptrType$5, smap, m, listenerMap, newCrConn, Dial, Listen, init;
+$packages["github.com/Archs/chrome/sim/net"] = (function() {
+	var $pkg = {}, $init, bytes, errors, fmt, sockets, tcp, tcpserver, udp, net, strings, time, timeoutError, buffer, tcpConn, tcpListener, udpPacket, UDPConn, ptrType, structType, chanType, ptrType$1, sliceType, chanType$1, ptrType$2, sliceType$1, ptrType$3, ptrType$4, ptrType$5, ptrType$6, ptrType$7, chanType$2, ptrType$8, ptrType$9, tcpMap, listenerMap, udpMap, Dial, Listen, newBuffer, newTcpConn, init, newPacket, newPacketErr, newUDPConn, DialUDP, init$1;
 	bytes = $packages["bytes"];
 	errors = $packages["errors"];
 	fmt = $packages["fmt"];
-	sockets = $packages["github.com/Archs/chrome/net/sockets"];
-	tcp = $packages["github.com/Archs/chrome/net/sockets/tcp"];
-	tcpserver = $packages["github.com/Archs/chrome/net/sockets/tcpserver"];
+	sockets = $packages["github.com/Archs/chrome/api/sockets"];
+	tcp = $packages["github.com/Archs/chrome/api/sockets/tcp"];
+	tcpserver = $packages["github.com/Archs/chrome/api/sockets/tcpserver"];
+	udp = $packages["github.com/Archs/chrome/api/sockets/udp"];
 	net = $packages["net"];
-	sync = $packages["sync"];
+	strings = $packages["strings"];
 	time = $packages["time"];
-	crConn = $pkg.crConn = $newType(0, $kindStruct, "net.crConn", "crConn", "github.com/Archs/chrome/net", function(socketId_, readBuf_, readError_, readDeadLine_) {
+	timeoutError = $pkg.timeoutError = $newType(0, $kindStruct, "net.timeoutError", "timeoutError", "github.com/Archs/chrome/sim/net", function(OpError_, isTimeOut_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.socketId = 0;
-			this.readBuf = ptrType.nil;
+			this.OpError = new net.OpError.ptr();
+			this.isTimeOut = false;
+			return;
+		}
+		this.OpError = OpError_;
+		this.isTimeOut = isTimeOut_;
+	});
+	buffer = $pkg.buffer = $newType(0, $kindStruct, "net.buffer", "buffer", "github.com/Archs/chrome/sim/net", function(readBuf_, readError_, readDeadLine_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.readBuf = ptrType$2.nil;
 			this.readError = $ifaceNil;
 			this.readDeadLine = new time.Time.ptr();
 			return;
 		}
-		this.socketId = socketId_;
 		this.readBuf = readBuf_;
 		this.readError = readError_;
 		this.readDeadLine = readDeadLine_;
 	});
-	crListener = $pkg.crListener = $newType(0, $kindStruct, "net.crListener", "crListener", "github.com/Archs/chrome/net", function(socketId_, ch_, err_) {
+	tcpConn = $pkg.tcpConn = $newType(0, $kindStruct, "net.tcpConn", "tcpConn", "github.com/Archs/chrome/sim/net", function(buffer_, socketId_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.buffer = ptrType$4.nil;
+			this.socketId = 0;
+			return;
+		}
+		this.buffer = buffer_;
+		this.socketId = socketId_;
+	});
+	tcpListener = $pkg.tcpListener = $newType(0, $kindStruct, "net.tcpListener", "tcpListener", "github.com/Archs/chrome/sim/net", function(socketId_, ch_, err_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.socketId = 0;
@@ -25968,42 +26164,73 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		this.ch = ch_;
 		this.err = err_;
 	});
-	timeoutError = $pkg.timeoutError = $newType(0, $kindStruct, "net.timeoutError", "timeoutError", "github.com/Archs/chrome/net", function(OpError_, isTimeOut_) {
+	udpPacket = $pkg.udpPacket = $newType(0, $kindStruct, "net.udpPacket", "udpPacket", "github.com/Archs/chrome/sim/net", function(data_, remoteAddr_, err_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.OpError = new net.OpError.ptr();
-			this.isTimeOut = false;
+			this.data = sliceType$1.nil;
+			this.remoteAddr = $ifaceNil;
+			this.err = $ifaceNil;
 			return;
 		}
-		this.OpError = OpError_;
-		this.isTimeOut = isTimeOut_;
+		this.data = data_;
+		this.remoteAddr = remoteAddr_;
+		this.err = err_;
 	});
-	ptrType = $ptrType(bytes.Buffer);
-	sliceType = $sliceType($Uint8);
-	ptrType$1 = $ptrType(time.Location);
+	UDPConn = $pkg.UDPConn = $newType(0, $kindStruct, "net.UDPConn", "UDPConn", "github.com/Archs/chrome/sim/net", function(socketId_, ch_, readDeadline_, laddr_, raddr_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.socketId = 0;
+			this.ch = chanType$2.nil;
+			this.readDeadline = new time.Time.ptr();
+			this.laddr = ptrType.nil;
+			this.raddr = ptrType.nil;
+			return;
+		}
+		this.socketId = socketId_;
+		this.ch = ch_;
+		this.readDeadline = readDeadline_;
+		this.laddr = laddr_;
+		this.raddr = raddr_;
+	});
+	ptrType = $ptrType(net.UDPAddr);
 	structType = $structType([]);
 	chanType = $chanType(structType, false, false);
-	ptrType$2 = $ptrType(net.TCPAddr);
-	sliceType$1 = $sliceType($emptyInterface);
+	ptrType$1 = $ptrType(net.TCPAddr);
+	sliceType = $sliceType($emptyInterface);
 	chanType$1 = $chanType($Int, false, false);
-	ptrType$3 = $ptrType(crConn);
-	ptrType$4 = $ptrType(crListener);
-	ptrType$5 = $ptrType(timeoutError);
-	newCrConn = function(socketId) {
-		var $ptr, _key, conn, socketId;
-		conn = new crConn.ptr(socketId, bytes.NewBuffer(sliceType.nil), $ifaceNil, new time.Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil));
-		_key = socketId; (smap || $throwRuntimeError("assignment to entry in nil map"))[_key] = { k: _key, v: conn };
-		return conn;
-	};
+	ptrType$2 = $ptrType(bytes.Buffer);
+	sliceType$1 = $sliceType($Uint8);
+	ptrType$3 = $ptrType(time.Location);
+	ptrType$4 = $ptrType(buffer);
+	ptrType$5 = $ptrType(tcpConn);
+	ptrType$6 = $ptrType(tcpListener);
+	ptrType$7 = $ptrType(udpPacket);
+	chanType$2 = $chanType(ptrType$7, false, false);
+	ptrType$8 = $ptrType(UDPConn);
+	ptrType$9 = $ptrType(timeoutError);
 	Dial = function(network, address) {
-		var $ptr, _r, _r$1, _tuple, addr, address, ch, conn, err, network, socketId, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple = $f._tuple; addr = $f.addr; address = $f.address; ch = $f.ch; conn = $f.conn; err = $f.err; network = $f.network; socketId = $f.socketId; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r, _r$1, _r$2, _r$3, _tuple, _tuple$1, addr, address, ch, conn, err, err$1, network, raddr, socketId, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; addr = $f.addr; address = $f.address; ch = $f.ch; conn = $f.conn; err = $f.err; err$1 = $f.err$1; network = $f.network; raddr = $f.raddr; socketId = $f.socketId; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		addr = [addr];
 		ch = [ch];
 		err = [err];
 		socketId = [socketId];
-		_r = net.ResolveTCPAddr(network, address); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple = _r; addr[0] = _tuple[0]; err[0] = _tuple[1];
+		if (network.length > 4 || (network.length === 0)) {
+			return [$ifaceNil, errors.New("bad network")];
+		}
+		/* */ if (strings.HasPrefix(network, "udp")) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (strings.HasPrefix(network, "udp")) { */ case 1:
+			_r = net.ResolveUDPAddr(network, address); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_tuple = _r; raddr = _tuple[0]; err$1 = _tuple[1];
+			if (!($interfaceIsEqual(err$1, $ifaceNil))) {
+				return [$ifaceNil, err$1];
+			}
+			_r$1 = DialUDP(network, ptrType.nil, raddr); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			return _r$1;
+		/* } */ case 2:
+		_r$2 = net.ResolveTCPAddr(network, address); /* */ $s = 5; case 5: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_tuple$1 = _r$2; addr[0] = _tuple$1[0]; err[0] = _tuple$1[1];
 		if (!($interfaceIsEqual(err[0], $ifaceNil))) {
 			return [$ifaceNil, err[0]];
 		}
@@ -26020,14 +26247,14 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 				$close(ch[0]);
 			}; })(addr, ch, err, socketId));
 		}; })(addr, ch, err, socketId));
-		_r$1 = $recv(ch[0]); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		_r$1[0];
+		_r$3 = $recv(ch[0]); /* */ $s = 6; case 6: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+		_r$3[0];
 		if (!($interfaceIsEqual(err[0], $ifaceNil))) {
 			return [$ifaceNil, err[0]];
 		}
-		conn = newCrConn(socketId[0]);
+		conn = newTcpConn(socketId[0]);
 		return [conn, $ifaceNil];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Dial }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.addr = addr; $f.address = address; $f.ch = ch; $f.conn = conn; $f.err = err; $f.network = network; $f.socketId = socketId; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Dial }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f.addr = addr; $f.address = address; $f.ch = ch; $f.conn = conn; $f.err = err; $f.err$1 = err$1; $f.network = network; $f.raddr = raddr; $f.socketId = socketId; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Dial = Dial;
 	Listen = function(network, laddr) {
@@ -26040,7 +26267,7 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		network = [network];
 		socketId = [socketId];
 		err[0] = $ifaceNil;
-		addr[0] = ptrType$2.nil;
+		addr[0] = ptrType$1.nil;
 		socketId[0] = 0;
 		ch[0] = new chanType(0);
 		tcpserver.Create((function(addr, ch, err, laddr, network, socketId) { return function $b(ci) {
@@ -26056,7 +26283,7 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 					/* */ if (result < 0) { $s = 1; continue; }
 					/* */ $s = 2; continue;
 					/* if (result < 0) { */ case 1:
-						_r$1 = fmt.Errorf("tcp server listen error: %d", new sliceType$1([new $Int(result)])); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+						_r$1 = fmt.Errorf("tcp server listen error: %d", new sliceType([new $Int(result)])); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 						err[0] = _r$1;
 					/* } */ case 2:
 					/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.result = result; $f.$s = $s; $f.$r = $r; return $f;
@@ -26070,13 +26297,87 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		if (!($interfaceIsEqual(err[0], $ifaceNil))) {
 			return [$ifaceNil, err[0]];
 		}
-		l = new crListener.ptr(socketId[0], new chanType$1(0), $ifaceNil);
+		l = new tcpListener.ptr(socketId[0], new chanType$1(0), $ifaceNil);
 		_key = socketId[0]; (listenerMap || $throwRuntimeError("assignment to entry in nil map"))[_key] = { k: _key, v: l };
 		return [l, $ifaceNil];
 		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: Listen }; } $f.$ptr = $ptr; $f._key = _key; $f._r = _r; $f.addr = addr; $f.ch = ch; $f.err = err; $f.l = l; $f.laddr = laddr; $f.network = network; $f.socketId = socketId; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Listen = Listen;
-	crListener.ptr.prototype.Accept = function() {
+	timeoutError.ptr.prototype.Timeout = function() {
+		var $ptr, t;
+		t = this;
+		return t.isTimeOut;
+	};
+	timeoutError.prototype.Timeout = function() { return this.$val.Timeout(); };
+	buffer.ptr.prototype.hasTimeout = function() {
+		var $ptr, c;
+		c = this;
+		if (!c.readDeadLine.IsZero() && time.Now().After(c.readDeadLine)) {
+			return true;
+		}
+		return false;
+	};
+	buffer.prototype.hasTimeout = function() { return this.$val.hasTimeout(); };
+	newBuffer = function() {
+		var $ptr;
+		return new buffer.ptr(bytes.NewBuffer(sliceType$1.nil), $ifaceNil, new time.Time.ptr(new $Int64(0, 0), 0, ptrType$3.nil));
+	};
+	buffer.ptr.prototype.Read = function(b) {
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, c, err, n, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tuple = $f._tuple; b = $f.b; c = $f.c; err = $f.err; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		n = 0;
+		err = $ifaceNil;
+		c = this;
+		if (!($interfaceIsEqual(c.readError, $ifaceNil))) {
+			_tmp = 0; _tmp$1 = c.readError; n = _tmp; err = _tmp$1;
+			return [n, err];
+		}
+		/* while (true) { */ case 1:
+			_tuple = c.readBuf.Read(b); n = _tuple[0]; err = _tuple[1];
+			if (n > 0) {
+				err = $ifaceNil;
+				return [n, err];
+			}
+			if (c.hasTimeout()) {
+				_tmp$2 = 0; _tmp$3 = new timeoutError.ptr(new net.OpError.ptr("read", "", $ifaceNil, errors.New("timeout")), true); n = _tmp$2; err = _tmp$3;
+				return [n, err];
+			}
+			$r = time.Sleep(new time.Duration(0, 10000000)); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ $s = 1; continue; case 2:
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: buffer.ptr.prototype.Read }; } $f.$ptr = $ptr; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tuple = _tuple; $f.b = b; $f.c = c; $f.err = err; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	buffer.prototype.Read = function(b) { return this.$val.Read(b); };
+	buffer.ptr.prototype.SetDeadline = function(t) {
+		var $ptr, c, t;
+		c = this;
+		t = $clone(t, time.Time);
+		c.SetReadDeadline(t);
+		c.SetWriteDeadline(t);
+		return $ifaceNil;
+	};
+	buffer.prototype.SetDeadline = function(t) { return this.$val.SetDeadline(t); };
+	buffer.ptr.prototype.SetReadDeadline = function(t) {
+		var $ptr, c, t;
+		c = this;
+		t = $clone(t, time.Time);
+		$copy(c.readDeadLine, t, time.Time);
+		return $ifaceNil;
+	};
+	buffer.prototype.SetReadDeadline = function(t) { return this.$val.SetReadDeadline(t); };
+	buffer.ptr.prototype.SetWriteDeadline = function(t) {
+		var $ptr, c, t;
+		c = this;
+		t = $clone(t, time.Time);
+		return $ifaceNil;
+	};
+	buffer.prototype.SetWriteDeadline = function(t) { return this.$val.SetWriteDeadline(t); };
+	newTcpConn = function(socketId) {
+		var $ptr, _key, conn, socketId;
+		conn = new tcpConn.ptr(newBuffer(), socketId);
+		_key = socketId; (tcpMap || $throwRuntimeError("assignment to entry in nil map"))[_key] = { k: _key, v: conn };
+		return conn;
+	};
+	tcpListener.ptr.prototype.Accept = function() {
 		var $ptr, _r, c, cl, err, id, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; c = $f.c; cl = $f.cl; err = $f.err; id = $f.id; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		c = $ifaceNil;
@@ -26090,20 +26391,20 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		}
 		_r = $recv(cl.ch); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		id = _r[0];
-		c = newCrConn(id);
+		c = newTcpConn(id);
 		return [c, err];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: crListener.ptr.prototype.Accept }; } $f.$ptr = $ptr; $f._r = _r; $f.c = c; $f.cl = cl; $f.err = err; $f.id = id; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: tcpListener.ptr.prototype.Accept }; } $f.$ptr = $ptr; $f._r = _r; $f.c = c; $f.cl = cl; $f.err = err; $f.id = id; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	crListener.prototype.Accept = function() { return this.$val.Accept(); };
-	crListener.ptr.prototype.Close = function() {
+	tcpListener.prototype.Accept = function() { return this.$val.Accept(); };
+	tcpListener.ptr.prototype.Close = function() {
 		var $ptr, c;
 		c = this;
 		tcpserver.Close(c.socketId);
 		delete listenerMap[c.socketId];
 		return $ifaceNil;
 	};
-	crListener.prototype.Close = function() { return this.$val.Close(); };
-	crListener.ptr.prototype.Addr = function() {
+	tcpListener.prototype.Close = function() { return this.$val.Close(); };
+	tcpListener.ptr.prototype.Addr = function() {
 		var $ptr, _r, addr, c, ch, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; addr = $f.addr; c = $f.c; ch = $f.ch; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		addr = [addr];
@@ -26119,55 +26420,10 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		_r = $recv(ch[0]); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r[0];
 		return addr[0];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: crListener.ptr.prototype.Addr }; } $f.$ptr = $ptr; $f._r = _r; $f.addr = addr; $f.c = c; $f.ch = ch; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: tcpListener.ptr.prototype.Addr }; } $f.$ptr = $ptr; $f._r = _r; $f.addr = addr; $f.c = c; $f.ch = ch; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	crListener.prototype.Addr = function() { return this.$val.Addr(); };
-	timeoutError.ptr.prototype.Timeout = function() {
-		var $ptr, t;
-		t = this;
-		return t.isTimeOut;
-	};
-	timeoutError.prototype.Timeout = function() { return this.$val.Timeout(); };
-	crConn.ptr.prototype.hasTimeout = function() {
-		var $ptr, c;
-		c = this;
-		if (!c.readDeadLine.IsZero() && time.Now().After(c.readDeadLine)) {
-			return true;
-		}
-		return false;
-	};
-	crConn.prototype.hasTimeout = function() { return this.$val.hasTimeout(); };
-	crConn.ptr.prototype.Read = function(b) {
-		var $ptr, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, c, err, n, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tuple = $f._tuple; b = $f.b; c = $f.c; err = $f.err; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		n = 0;
-		err = $ifaceNil;
-		c = this;
-		if (!($interfaceIsEqual(c.readError, $ifaceNil))) {
-			_tmp = 0; _tmp$1 = c.readError; n = _tmp; err = _tmp$1;
-			return [n, err];
-		}
-		/* while (true) { */ case 1:
-			$r = m.Lock(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-			_tuple = c.readBuf.Read(b); n = _tuple[0]; err = _tuple[1];
-			$r = m.Unlock(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-			if (n > 0) {
-				err = $ifaceNil;
-				return [n, err];
-			}
-			/* */ if (c.hasTimeout()) { $s = 5; continue; }
-			/* */ $s = 6; continue;
-			/* if (c.hasTimeout()) { */ case 5:
-				_r = c.RemoteAddr(); /* */ $s = 7; case 7: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-				_tmp$2 = 0; _tmp$3 = new timeoutError.ptr(new net.OpError.ptr("read", "tcp", _r, errors.New("timeout")), true); n = _tmp$2; err = _tmp$3;
-				return [n, err];
-			/* } */ case 6:
-			$r = time.Sleep(new time.Duration(0, 10000000)); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		/* } */ $s = 1; continue; case 2:
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: crConn.ptr.prototype.Read }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tuple = _tuple; $f.b = b; $f.c = c; $f.err = err; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	crConn.prototype.Read = function(b) { return this.$val.Read(b); };
-	crConn.ptr.prototype.Write = function(b) {
+	tcpListener.prototype.Addr = function() { return this.$val.Addr(); };
+	tcpConn.ptr.prototype.Write = function(b) {
 		var $ptr, _r, b, c, ch, err, n, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; b = $f.b; c = $f.c; ch = $f.ch; err = $f.err; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		ch = [ch];
@@ -26183,7 +26439,7 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 			/* */ if (($parseInt(si.Object.resultCode) >> 0) < 0) { $s = 1; continue; }
 			/* */ $s = 2; continue;
 			/* if (($parseInt(si.Object.resultCode) >> 0) < 0) { */ case 1:
-				_r = fmt.Errorf("socket write failed: %d", new sliceType$1([new $Int(($parseInt(si.Object.resultCode) >> 0))])); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_r = fmt.Errorf("socket write failed: %d", new sliceType([new $Int(($parseInt(si.Object.resultCode) >> 0))])); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				err[0] = _r;
 				$s = 3; continue;
 			/* } else { */ case 2:
@@ -26195,18 +26451,18 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		_r = $recv(ch[0]); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r[0];
 		return [n[0], err[0]];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: crConn.ptr.prototype.Write }; } $f.$ptr = $ptr; $f._r = _r; $f.b = b; $f.c = c; $f.ch = ch; $f.err = err; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: tcpConn.ptr.prototype.Write }; } $f.$ptr = $ptr; $f._r = _r; $f.b = b; $f.c = c; $f.ch = ch; $f.err = err; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	crConn.prototype.Write = function(b) { return this.$val.Write(b); };
-	crConn.ptr.prototype.Close = function() {
+	tcpConn.prototype.Write = function(b) { return this.$val.Write(b); };
+	tcpConn.ptr.prototype.Close = function() {
 		var $ptr, c;
 		c = this;
 		tcp.Close(c.socketId);
-		delete smap[c.socketId];
+		delete tcpMap[c.socketId];
 		return $ifaceNil;
 	};
-	crConn.prototype.Close = function() { return this.$val.Close(); };
-	crConn.ptr.prototype.LocalAddr = function() {
+	tcpConn.prototype.Close = function() { return this.$val.Close(); };
+	tcpConn.ptr.prototype.LocalAddr = function() {
 		var $ptr, _r, addr, c, ch, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; addr = $f.addr; c = $f.c; ch = $f.ch; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		addr = [addr];
@@ -26222,10 +26478,10 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		_r = $recv(ch[0]); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r[0];
 		return addr[0];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: crConn.ptr.prototype.LocalAddr }; } $f.$ptr = $ptr; $f._r = _r; $f.addr = addr; $f.c = c; $f.ch = ch; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: tcpConn.ptr.prototype.LocalAddr }; } $f.$ptr = $ptr; $f._r = _r; $f.addr = addr; $f.c = c; $f.ch = ch; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	crConn.prototype.LocalAddr = function() { return this.$val.LocalAddr(); };
-	crConn.ptr.prototype.RemoteAddr = function() {
+	tcpConn.prototype.LocalAddr = function() { return this.$val.LocalAddr(); };
+	tcpConn.ptr.prototype.RemoteAddr = function() {
 		var $ptr, _r, addr, c, ch, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; addr = $f.addr; c = $f.c; ch = $f.ch; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		addr = [addr];
@@ -26241,69 +26497,39 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		_r = $recv(ch[0]); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r[0];
 		return addr[0];
-		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: crConn.ptr.prototype.RemoteAddr }; } $f.$ptr = $ptr; $f._r = _r; $f.addr = addr; $f.c = c; $f.ch = ch; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: tcpConn.ptr.prototype.RemoteAddr }; } $f.$ptr = $ptr; $f._r = _r; $f.addr = addr; $f.c = c; $f.ch = ch; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	crConn.prototype.RemoteAddr = function() { return this.$val.RemoteAddr(); };
-	crConn.ptr.prototype.SetDeadline = function(t) {
-		var $ptr, c, t;
-		c = this;
-		t = $clone(t, time.Time);
-		c.SetReadDeadline(t);
-		c.SetWriteDeadline(t);
-		return $ifaceNil;
-	};
-	crConn.prototype.SetDeadline = function(t) { return this.$val.SetDeadline(t); };
-	crConn.ptr.prototype.SetReadDeadline = function(t) {
-		var $ptr, c, t;
-		c = this;
-		t = $clone(t, time.Time);
-		$copy(c.readDeadLine, t, time.Time);
-		return $ifaceNil;
-	};
-	crConn.prototype.SetReadDeadline = function(t) { return this.$val.SetReadDeadline(t); };
-	crConn.ptr.prototype.SetWriteDeadline = function(t) {
-		var $ptr, c, t;
-		c = this;
-		t = $clone(t, time.Time);
-		return $ifaceNil;
-	};
-	crConn.prototype.SetWriteDeadline = function(t) { return this.$val.SetWriteDeadline(t); };
+	tcpConn.prototype.RemoteAddr = function() { return this.$val.RemoteAddr(); };
 	init = function() {
 		var $ptr;
 		tcp.OnReceive((function(ri) {
 			var $ptr, ri;
-			$go((function $b() {
-				var $ptr, _entry, _tuple, conn, ok, $s, $deferred, $r;
-				/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _tuple = $f._tuple; conn = $f.conn; ok = $f.ok; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-				$r = m.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-				$deferred.push([$methodVal(m, "Unlock"), []]);
-				_tuple = (_entry = smap[$parseInt(ri.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$3.nil, false]); conn = _tuple[0]; ok = _tuple[1];
+			$go((function() {
+				var $ptr, _entry, _tuple, conn, ok;
+				_tuple = (_entry = tcpMap[$parseInt(ri.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$5.nil, false]); conn = _tuple[0]; ok = _tuple[1];
 				if (ok) {
-					conn.readBuf.Write(ri.Data);
+					conn.buffer.readBuf.Write(ri.Data);
 				} else {
-					console.log("no conn found", smap);
+					console.log("no conn found", tcpMap);
 				}
-				/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._entry = _entry; $f._tuple = _tuple; $f.conn = conn; $f.ok = ok; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 			}), []);
 		}));
 		tcp.OnReceiveError((function $b(re) {
-			var $ptr, _entry, _r, _tuple, conn, ok, re, $s, $deferred, $r;
-			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _r = $f._r; _tuple = $f._tuple; conn = $f.conn; ok = $f.ok; re = $f.re; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
-			$r = m.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-			$deferred.push([$methodVal(m, "Unlock"), []]);
-			_tuple = (_entry = smap[$parseInt(re.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$3.nil, false]); conn = _tuple[0]; ok = _tuple[1];
-			/* */ if (ok) { $s = 2; continue; }
-			/* */ $s = 3; continue;
-			/* if (ok) { */ case 2:
-				_r = fmt.Errorf("recv error code %d", new sliceType$1([new $Int(($parseInt(re.Object.resultCode) >> 0))])); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-				conn.readError = _r;
-			/* } */ case 3:
-			/* */ $s = -1; case -1: } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._entry = _entry; $f._r = _r; $f._tuple = _tuple; $f.conn = conn; $f.ok = ok; $f.re = re; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
+			var $ptr, _entry, _r, _tuple, conn, ok, re, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _r = $f._r; _tuple = $f._tuple; conn = $f.conn; ok = $f.ok; re = $f.re; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			_tuple = (_entry = tcpMap[$parseInt(re.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$5.nil, false]); conn = _tuple[0]; ok = _tuple[1];
+			/* */ if (ok) { $s = 1; continue; }
+			/* */ $s = 2; continue;
+			/* if (ok) { */ case 1:
+				_r = fmt.Errorf("recv error code %d", new sliceType([new $Int(($parseInt(re.Object.resultCode) >> 0))])); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				conn.buffer.readError = _r;
+			/* } */ case 2:
+			/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._entry = _entry; $f._r = _r; $f._tuple = _tuple; $f.conn = conn; $f.ok = ok; $f.re = re; $f.$s = $s; $f.$r = $r; return $f;
 		}));
 		tcpserver.OnAccept((function $b(ai) {
 			var $ptr, _entry, _tuple, ai, cl, ok, $s, $r;
 			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _tuple = $f._tuple; ai = $f.ai; cl = $f.cl; ok = $f.ok; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-			_tuple = (_entry = listenerMap[$parseInt(ai.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$4.nil, false]); cl = _tuple[0]; ok = _tuple[1];
+			_tuple = (_entry = listenerMap[$parseInt(ai.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$6.nil, false]); cl = _tuple[0]; ok = _tuple[1];
 			if (!ok) {
 				return;
 			}
@@ -26314,21 +26540,282 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		tcpserver.OnAcceptError((function $b(ae) {
 			var $ptr, _entry, _r, _tuple, ae, cl, ok, $s, $r;
 			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _r = $f._r; _tuple = $f._tuple; ae = $f.ae; cl = $f.cl; ok = $f.ok; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-			_tuple = (_entry = listenerMap[$parseInt(ae.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$4.nil, false]); cl = _tuple[0]; ok = _tuple[1];
+			_tuple = (_entry = listenerMap[$parseInt(ae.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$6.nil, false]); cl = _tuple[0]; ok = _tuple[1];
 			if (!ok) {
 				return;
 			}
-			_r = fmt.Errorf("accept error: %d", new sliceType$1([new $Int(($parseInt(ae.Object.resultCode) >> 0))])); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_r = fmt.Errorf("accept error: %d", new sliceType([new $Int(($parseInt(ae.Object.resultCode) >> 0))])); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			cl.err = _r;
 			/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._entry = _entry; $f._r = _r; $f._tuple = _tuple; $f.ae = ae; $f.cl = cl; $f.ok = ok; $f.$s = $s; $f.$r = $r; return $f;
 		}));
 	};
-	ptrType$3.methods = [{prop: "hasTimeout", name: "hasTimeout", pkg: "github.com/Archs/chrome/net", typ: $funcType([], [$Bool], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType], [$Int, $error], false)}, {prop: "Write", name: "Write", pkg: "", typ: $funcType([sliceType], [$Int, $error], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "LocalAddr", name: "LocalAddr", pkg: "", typ: $funcType([], [net.Addr], false)}, {prop: "RemoteAddr", name: "RemoteAddr", pkg: "", typ: $funcType([], [net.Addr], false)}, {prop: "SetDeadline", name: "SetDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}, {prop: "SetReadDeadline", name: "SetReadDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}, {prop: "SetWriteDeadline", name: "SetWriteDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}];
-	ptrType$4.methods = [{prop: "Accept", name: "Accept", pkg: "", typ: $funcType([], [net.Conn, $error], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Addr", name: "Addr", pkg: "", typ: $funcType([], [net.Addr], false)}];
-	ptrType$5.methods = [{prop: "Timeout", name: "Timeout", pkg: "", typ: $funcType([], [$Bool], false)}];
-	crConn.init([{prop: "socketId", name: "socketId", pkg: "github.com/Archs/chrome/net", typ: $Int, tag: ""}, {prop: "readBuf", name: "readBuf", pkg: "github.com/Archs/chrome/net", typ: ptrType, tag: ""}, {prop: "readError", name: "readError", pkg: "github.com/Archs/chrome/net", typ: $error, tag: ""}, {prop: "readDeadLine", name: "readDeadLine", pkg: "github.com/Archs/chrome/net", typ: time.Time, tag: ""}]);
-	crListener.init([{prop: "socketId", name: "socketId", pkg: "github.com/Archs/chrome/net", typ: $Int, tag: ""}, {prop: "ch", name: "ch", pkg: "github.com/Archs/chrome/net", typ: chanType$1, tag: ""}, {prop: "err", name: "err", pkg: "github.com/Archs/chrome/net", typ: $error, tag: ""}]);
-	timeoutError.init([{prop: "OpError", name: "", pkg: "", typ: net.OpError, tag: ""}, {prop: "isTimeOut", name: "isTimeOut", pkg: "github.com/Archs/chrome/net", typ: $Bool, tag: ""}]);
+	newPacket = function(data, addr) {
+		var $ptr, addr, data;
+		return new udpPacket.ptr(data, addr, $ifaceNil);
+	};
+	newPacketErr = function(err) {
+		var $ptr, err;
+		return new udpPacket.ptr(sliceType$1.nil, $ifaceNil, err);
+	};
+	newUDPConn = function(socketId) {
+		var $ptr, _key, conn, socketId;
+		conn = new UDPConn.ptr(socketId, new chanType$2(10), new time.Time.ptr(new $Int64(0, 0), 0, ptrType$3.nil), ptrType.nil, ptrType.nil);
+		_key = socketId; (udpMap || $throwRuntimeError("assignment to entry in nil map"))[_key] = { k: _key, v: conn };
+		return conn;
+	};
+	DialUDP = function(network, laddr, raddr) {
+		var $ptr, _r, conn, err, laddr, network, raddr, sig, socketId, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; conn = $f.conn; err = $f.err; laddr = $f.laddr; network = $f.network; raddr = $f.raddr; sig = $f.sig; socketId = $f.socketId; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		conn = [conn];
+		err = [err];
+		laddr = [laddr];
+		network = [network];
+		raddr = [raddr];
+		sig = [sig];
+		socketId = [socketId];
+		if (!strings.HasPrefix(network[0], "udp") || network[0].length > 4) {
+			return [ptrType$8.nil, errors.New("network not supported")];
+		}
+		err[0] = $ifaceNil;
+		conn[0] = ptrType$8.nil;
+		sig[0] = new chanType(0);
+		socketId[0] = 0;
+		udp.CreateEx((function(conn, err, laddr, network, raddr, sig, socketId) { return function $b(ci) {
+			var $ptr, _r, _tuple, ci, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; ci = $f.ci; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			socketId[0] = $parseInt(ci.Object.socketId) >> 0;
+			/* */ if (laddr[0] === ptrType.nil) { $s = 1; continue; }
+			/* */ $s = 2; continue;
+			/* if (laddr[0] === ptrType.nil) { */ case 1:
+				_r = net.ResolveUDPAddr(network[0], ":0"); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_tuple = _r; laddr[0] = _tuple[0]; err[0] = _tuple[1];
+			/* } */ case 2:
+			if (!($interfaceIsEqual(err[0], $ifaceNil))) {
+				$close(sig[0]);
+				return;
+			}
+			udp.Bind(socketId[0], laddr[0].IP.String(), laddr[0].Port, (function(conn, err, laddr, network, raddr, sig, socketId) { return function $b(result) {
+				var $ptr, _r$1, result, $s, $r;
+				/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; result = $f.result; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+				/* */ if (result < 0) { $s = 1; continue; }
+				/* */ $s = 2; continue;
+				/* if (result < 0) { */ case 1:
+					_r$1 = fmt.Errorf("udp bind local address failed:%d", new sliceType([new $Int(result)])); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+					err[0] = _r$1;
+					$s = 3; continue;
+				/* } else { */ case 2:
+					conn[0] = newUDPConn(socketId[0]);
+					conn[0].laddr = laddr[0];
+					conn[0].raddr = raddr[0];
+				/* } */ case 3:
+				$close(sig[0]);
+				/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.result = result; $f.$s = $s; $f.$r = $r; return $f;
+			}; })(conn, err, laddr, network, raddr, sig, socketId));
+			/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.ci = ci; $f.$s = $s; $f.$r = $r; return $f;
+		}; })(conn, err, laddr, network, raddr, sig, socketId));
+		_r = $recv(sig[0]); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r[0];
+		return [conn[0], err[0]];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: DialUDP }; } $f.$ptr = $ptr; $f._r = _r; $f.conn = conn; $f.err = err; $f.laddr = laddr; $f.network = network; $f.raddr = raddr; $f.sig = sig; $f.socketId = socketId; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.DialUDP = DialUDP;
+	UDPConn.ptr.prototype.ReadFrom = function(b) {
+		var $ptr, _r, _selection, b, n, p, u, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _selection = $f._selection; b = $f.b; n = $f.n; p = $f.p; u = $f.u; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		u = this;
+		/* while (true) { */ case 1:
+			_r = $select([[u.ch], [time.Tick(new time.Duration(0, 10000))]]); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_selection = _r;
+			if (_selection[0] === 0) {
+				p = _selection[1][0];
+				n = b.$length;
+				if (p.data.$length < n) {
+					n = p.data.$length;
+				}
+				$copySlice(b, $subslice(p.data, 0, n));
+				return [n, p.remoteAddr, $ifaceNil];
+			} else if (_selection[0] === 1) {
+				if (!u.readDeadline.IsZero() && time.Now().After(u.readDeadline)) {
+					return [0, $ifaceNil, new timeoutError.ptr(new net.OpError.ptr("udp readfrom", "", $ifaceNil, errors.New("timeout")), true)];
+				}
+			}
+		/* } */ $s = 1; continue; case 2:
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: UDPConn.ptr.prototype.ReadFrom }; } $f.$ptr = $ptr; $f._r = _r; $f._selection = _selection; $f.b = b; $f.n = n; $f.p = p; $f.u = u; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	UDPConn.prototype.ReadFrom = function(b) { return this.$val.ReadFrom(b); };
+	UDPConn.ptr.prototype.Read = function(b) {
+		var $ptr, _r, _tuple, b, c, err, n, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; b = $f.b; c = $f.c; err = $f.err; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		c = this;
+		_r = c.ReadFrom(b); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_tuple = _r; n = _tuple[0]; err = _tuple[2];
+		return [n, err];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: UDPConn.ptr.prototype.Read }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.b = b; $f.c = c; $f.err = err; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	UDPConn.prototype.Read = function(b) { return this.$val.Read(b); };
+	UDPConn.ptr.prototype.WriteTo = function(b, addr) {
+		var $ptr, _arg, _arg$1, _r, _r$1, _r$2, _r$3, _tuple, addr, b, c, ch, err, n, raddr, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _arg = $f._arg; _arg$1 = $f._arg$1; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple = $f._tuple; addr = $f.addr; b = $f.b; c = $f.c; ch = $f.ch; err = $f.err; n = $f.n; raddr = $f.raddr; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		ch = [ch];
+		err = [err];
+		n = [n];
+		c = this;
+		ch[0] = new chanType(0);
+		n[0] = 0;
+		_r = addr.Network(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_arg = _r;
+		_r$1 = addr.String(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_arg$1 = _r$1;
+		_r$2 = net.ResolveUDPAddr(_arg, _arg$1); /* */ $s = 3; case 3: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_tuple = _r$2; raddr = _tuple[0]; err[0] = _tuple[1];
+		if (!($interfaceIsEqual(err[0], $ifaceNil))) {
+			return [0, $ifaceNil];
+		}
+		udp.Send(c.socketId, b, raddr.IP.String(), raddr.Port, (function(ch, err, n) { return function $b(si) {
+			var $ptr, _r$3, si, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$3 = $f._r$3; si = $f.si; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			/* */ if (($parseInt(si.Object.resultCode) >> 0) < 0) { $s = 1; continue; }
+			/* */ $s = 2; continue;
+			/* if (($parseInt(si.Object.resultCode) >> 0) < 0) { */ case 1:
+				_r$3 = fmt.Errorf("socket write failed: %d", new sliceType([new $Int(($parseInt(si.Object.resultCode) >> 0))])); /* */ $s = 4; case 4: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+				err[0] = _r$3;
+				$s = 3; continue;
+			/* } else { */ case 2:
+				n[0] = $parseInt(si.Object.bytesSent) >> 0;
+			/* } */ case 3:
+			$close(ch[0]);
+			/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r$3 = _r$3; $f.si = si; $f.$s = $s; $f.$r = $r; return $f;
+		}; })(ch, err, n));
+		_r$3 = $recv(ch[0]); /* */ $s = 4; case 4: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+		_r$3[0];
+		return [n[0], $ifaceNil];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: UDPConn.ptr.prototype.WriteTo }; } $f.$ptr = $ptr; $f._arg = _arg; $f._arg$1 = _arg$1; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._tuple = _tuple; $f.addr = addr; $f.b = b; $f.c = c; $f.ch = ch; $f.err = err; $f.n = n; $f.raddr = raddr; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	UDPConn.prototype.WriteTo = function(b, addr) { return this.$val.WriteTo(b, addr); };
+	UDPConn.ptr.prototype.Write = function(b) {
+		var $ptr, _r, _tuple, b, c, err, n, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; b = $f.b; c = $f.c; err = $f.err; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		n = 0;
+		err = $ifaceNil;
+		c = this;
+		_r = c.WriteTo(b, c.raddr); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_tuple = _r; n = _tuple[0]; err = _tuple[1];
+		return [n, err];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: UDPConn.ptr.prototype.Write }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.b = b; $f.c = c; $f.err = err; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	UDPConn.prototype.Write = function(b) { return this.$val.Write(b); };
+	UDPConn.ptr.prototype.Close = function() {
+		var $ptr, c;
+		c = this;
+		udp.Close(c.socketId);
+		delete udpMap[c.socketId];
+		return $ifaceNil;
+	};
+	UDPConn.prototype.Close = function() { return this.$val.Close(); };
+	UDPConn.ptr.prototype.LocalAddr = function() {
+		var $ptr, _r, addr, c, ch, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; addr = $f.addr; c = $f.c; ch = $f.ch; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		addr = [addr];
+		ch = [ch];
+		c = this;
+		addr[0] = $ifaceNil;
+		ch[0] = new chanType(0);
+		udp.GetInfo(c.socketId, (function(addr, ch) { return function(si) {
+			var $ptr, si;
+			addr[0] = new net.UDPAddr.ptr(net.ParseIP($internalize(si.Object.localAddress, $String)), $parseInt(si.Object.localPort) >> 0, "");
+			$close(ch[0]);
+		}; })(addr, ch));
+		_r = $recv(ch[0]); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r[0];
+		return addr[0];
+		/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: UDPConn.ptr.prototype.LocalAddr }; } $f.$ptr = $ptr; $f._r = _r; $f.addr = addr; $f.c = c; $f.ch = ch; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	UDPConn.prototype.LocalAddr = function() { return this.$val.LocalAddr(); };
+	UDPConn.ptr.prototype.RemoteAddr = function() {
+		var $ptr, c;
+		c = this;
+		return $ifaceNil;
+	};
+	UDPConn.prototype.RemoteAddr = function() { return this.$val.RemoteAddr(); };
+	UDPConn.ptr.prototype.SetDeadline = function(t) {
+		var $ptr, c, t;
+		c = this;
+		t = $clone(t, time.Time);
+		c.SetReadDeadline(t);
+		c.SetWriteDeadline(t);
+		return $ifaceNil;
+	};
+	UDPConn.prototype.SetDeadline = function(t) { return this.$val.SetDeadline(t); };
+	UDPConn.ptr.prototype.SetReadDeadline = function(t) {
+		var $ptr, c, t;
+		c = this;
+		t = $clone(t, time.Time);
+		$copy(c.readDeadline, t, time.Time);
+		return $ifaceNil;
+	};
+	UDPConn.prototype.SetReadDeadline = function(t) { return this.$val.SetReadDeadline(t); };
+	UDPConn.ptr.prototype.SetWriteDeadline = function(t) {
+		var $ptr, c, t;
+		c = this;
+		t = $clone(t, time.Time);
+		return $ifaceNil;
+	};
+	UDPConn.prototype.SetWriteDeadline = function(t) { return this.$val.SetWriteDeadline(t); };
+	init$1 = function() {
+		var $ptr;
+		udp.OnReceive((function(ri) {
+			var $ptr, ri;
+			$go((function $b() {
+				var $ptr, _entry, _r, _tuple, _tuple$1, addr, conn, err, ok, $s, $r;
+				/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _r = $f._r; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; addr = $f.addr; conn = $f.conn; err = $f.err; ok = $f.ok; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+				_tuple = (_entry = udpMap[$parseInt(ri.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$8.nil, false]); conn = _tuple[0]; ok = _tuple[1];
+				/* */ if (ok) { $s = 1; continue; }
+				/* */ $s = 2; continue;
+				/* if (ok) { */ case 1:
+					_r = net.ResolveUDPAddr("udp", $internalize(ri.Object.remoteAddress, $String)); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+					_tuple$1 = _r; addr = _tuple$1[0]; err = _tuple$1[1];
+					/* */ if (!($interfaceIsEqual(err, $ifaceNil))) { $s = 5; continue; }
+					/* */ $s = 6; continue;
+					/* if (!($interfaceIsEqual(err, $ifaceNil))) { */ case 5:
+						$r = $send(conn.ch, newPacket(ri.Data, addr)); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+						$s = 7; continue;
+					/* } else { */ case 6:
+						$r = $send(conn.ch, newPacketErr(err)); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+					/* } */ case 7:
+					$s = 3; continue;
+				/* } else { */ case 2:
+					console.log("no conn found", udpMap);
+				/* } */ case 3:
+				/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._entry = _entry; $f._r = _r; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f.addr = addr; $f.conn = conn; $f.err = err; $f.ok = ok; $f.$s = $s; $f.$r = $r; return $f;
+			}), []);
+		}));
+		udp.OnReceiveError((function $b(re) {
+			var $ptr, _arg, _arg$1, _entry, _r, _r$1, _tuple, conn, ok, re, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _arg = $f._arg; _arg$1 = $f._arg$1; _entry = $f._entry; _r = $f._r; _r$1 = $f._r$1; _tuple = $f._tuple; conn = $f.conn; ok = $f.ok; re = $f.re; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			_tuple = (_entry = udpMap[$parseInt(re.Object.socketId) >> 0], _entry !== undefined ? [_entry.v, true] : [ptrType$8.nil, false]); conn = _tuple[0]; ok = _tuple[1];
+			/* */ if (ok) { $s = 1; continue; }
+			/* */ $s = 2; continue;
+			/* if (ok) { */ case 1:
+				_arg = conn.ch;
+				_r = fmt.Errorf("recv error code %d", new sliceType([new $Int(($parseInt(re.Object.resultCode) >> 0))])); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_r$1 = newPacketErr(_r); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+				_arg$1 = _r$1;
+				$r = $send(_arg, _arg$1); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* } */ case 2:
+			/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._arg = _arg; $f._arg$1 = _arg$1; $f._entry = _entry; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.conn = conn; $f.ok = ok; $f.re = re; $f.$s = $s; $f.$r = $r; return $f;
+		}));
+	};
+	ptrType$9.methods = [{prop: "Timeout", name: "Timeout", pkg: "", typ: $funcType([], [$Bool], false)}];
+	ptrType$4.methods = [{prop: "hasTimeout", name: "hasTimeout", pkg: "github.com/Archs/chrome/sim/net", typ: $funcType([], [$Bool], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "SetDeadline", name: "SetDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}, {prop: "SetReadDeadline", name: "SetReadDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}, {prop: "SetWriteDeadline", name: "SetWriteDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}];
+	ptrType$5.methods = [{prop: "Write", name: "Write", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "LocalAddr", name: "LocalAddr", pkg: "", typ: $funcType([], [net.Addr], false)}, {prop: "RemoteAddr", name: "RemoteAddr", pkg: "", typ: $funcType([], [net.Addr], false)}];
+	ptrType$6.methods = [{prop: "Accept", name: "Accept", pkg: "", typ: $funcType([], [net.Conn, $error], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Addr", name: "Addr", pkg: "", typ: $funcType([], [net.Addr], false)}];
+	ptrType$8.methods = [{prop: "ReadFrom", name: "ReadFrom", pkg: "", typ: $funcType([sliceType$1], [$Int, net.Addr, $error], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "WriteTo", name: "WriteTo", pkg: "", typ: $funcType([sliceType$1, net.Addr], [$Int, $error], false)}, {prop: "Write", name: "Write", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "LocalAddr", name: "LocalAddr", pkg: "", typ: $funcType([], [net.Addr], false)}, {prop: "RemoteAddr", name: "RemoteAddr", pkg: "", typ: $funcType([], [net.Addr], false)}, {prop: "SetDeadline", name: "SetDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}, {prop: "SetReadDeadline", name: "SetReadDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}, {prop: "SetWriteDeadline", name: "SetWriteDeadline", pkg: "", typ: $funcType([time.Time], [$error], false)}];
+	timeoutError.init([{prop: "OpError", name: "", pkg: "", typ: net.OpError, tag: ""}, {prop: "isTimeOut", name: "isTimeOut", pkg: "github.com/Archs/chrome/sim/net", typ: $Bool, tag: ""}]);
+	buffer.init([{prop: "readBuf", name: "readBuf", pkg: "github.com/Archs/chrome/sim/net", typ: ptrType$2, tag: ""}, {prop: "readError", name: "readError", pkg: "github.com/Archs/chrome/sim/net", typ: $error, tag: ""}, {prop: "readDeadLine", name: "readDeadLine", pkg: "github.com/Archs/chrome/sim/net", typ: time.Time, tag: ""}]);
+	tcpConn.init([{prop: "buffer", name: "", pkg: "github.com/Archs/chrome/sim/net", typ: ptrType$4, tag: ""}, {prop: "socketId", name: "socketId", pkg: "github.com/Archs/chrome/sim/net", typ: $Int, tag: ""}]);
+	tcpListener.init([{prop: "socketId", name: "socketId", pkg: "github.com/Archs/chrome/sim/net", typ: $Int, tag: ""}, {prop: "ch", name: "ch", pkg: "github.com/Archs/chrome/sim/net", typ: chanType$1, tag: ""}, {prop: "err", name: "err", pkg: "github.com/Archs/chrome/sim/net", typ: $error, tag: ""}]);
+	udpPacket.init([{prop: "data", name: "data", pkg: "github.com/Archs/chrome/sim/net", typ: sliceType$1, tag: ""}, {prop: "remoteAddr", name: "remoteAddr", pkg: "github.com/Archs/chrome/sim/net", typ: net.Addr, tag: ""}, {prop: "err", name: "err", pkg: "github.com/Archs/chrome/sim/net", typ: $error, tag: ""}]);
+	UDPConn.init([{prop: "socketId", name: "socketId", pkg: "github.com/Archs/chrome/sim/net", typ: $Int, tag: ""}, {prop: "ch", name: "ch", pkg: "github.com/Archs/chrome/sim/net", typ: chanType$2, tag: ""}, {prop: "readDeadline", name: "readDeadline", pkg: "github.com/Archs/chrome/sim/net", typ: time.Time, tag: ""}, {prop: "laddr", name: "laddr", pkg: "github.com/Archs/chrome/sim/net", typ: ptrType, tag: ""}, {prop: "raddr", name: "raddr", pkg: "github.com/Archs/chrome/sim/net", typ: ptrType, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -26338,13 +26825,15 @@ $packages["github.com/Archs/chrome/net"] = (function() {
 		$r = sockets.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = tcp.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = tcpserver.$init(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = net.$init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = sync.$init(); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = time.$init(); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		smap = new $Map();
-		m = new sync.Mutex.ptr();
+		$r = udp.$init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = net.$init(); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = strings.$init(); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = time.$init(); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		tcpMap = new $Map();
 		listenerMap = new $Map();
+		udpMap = new $Map();
 		init();
+		init$1();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
@@ -26954,12 +27443,12 @@ $packages["log"] = (function() {
 	return $pkg;
 })();
 $packages["main"] = (function() {
-	var $pkg = {}, $init, fmt, net, sockets, tcp, tcpserver, ko, qunit, js, log, funcType, sliceType, sliceType$1, serverSock, clientSock, ip, port, in$1, out, currentConn, appendToOut, applyBindings, main;
+	var $pkg = {}, $init, fmt, sockets, tcp, tcpserver, net, ko, qunit, js, log, funcType, sliceType, sliceType$1, serverSock, clientSock, ip, port, in$1, out, currentConn, appendToOut, applyBindings, main;
 	fmt = $packages["fmt"];
-	net = $packages["github.com/Archs/chrome/net"];
-	sockets = $packages["github.com/Archs/chrome/net/sockets"];
-	tcp = $packages["github.com/Archs/chrome/net/sockets/tcp"];
-	tcpserver = $packages["github.com/Archs/chrome/net/sockets/tcpserver"];
+	sockets = $packages["github.com/Archs/chrome/api/sockets"];
+	tcp = $packages["github.com/Archs/chrome/api/sockets/tcp"];
+	tcpserver = $packages["github.com/Archs/chrome/api/sockets/tcpserver"];
+	net = $packages["github.com/Archs/chrome/sim/net"];
 	ko = $packages["github.com/Archs/gopherjs-ko"];
 	qunit = $packages["github.com/fabioberger/qunit"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
@@ -27194,10 +27683,10 @@ $packages["main"] = (function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = fmt.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = net.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = sockets.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = tcp.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = tcpserver.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = sockets.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = tcp.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = tcpserver.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = net.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = ko.$init(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = qunit.$init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = js.$init(); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
