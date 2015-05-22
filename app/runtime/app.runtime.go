@@ -68,12 +68,12 @@ type LaunchData struct {
 	//Handler IDs are the top-level keys in the file_handlers and/or url_handlers dictionaries in the manifest.
 	Id string
 
-	// array of object	(optional) items
+	// array of js.M	(optional) items
 	// Since Chrome 25.
 
 	// The file entries for the onLaunched event triggered by a matching file handler in the file_handlers manifest key.
 
-	// Properties of each object
+	// Properties of each js.M
 	// FileEntry	entry
 	// FileEntry for the file.
 

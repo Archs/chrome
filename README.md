@@ -133,7 +133,7 @@ func main() {
 
 }
 ```
-This program imports Dominikh's [dom](https://github.com/dominikh/go-js-dom) package for easy dom manipulation and the chrome bindings. We first instantiate the chrome object with "chrome.NewChrome()" and call methods on its properties, in this case "Tabs.Create".
+This program imports Dominikh's [dom](https://github.com/dominikh/go-js-dom) package for easy dom manipulation and the chrome bindings. We first instantiate the chrome js.M with "chrome.NewChrome()" and call methods on its properties, in this case "Tabs.Create".
 
 Whereas in javascript you would write:
 

@@ -22,7 +22,7 @@ var (
 // The callback parameter should be a function that looks like this:
 //
 // function(object createInfo) {...};
-//    object	createInfo
+//    js.M	createInfo
 //       The result of the socket creation.
 //
 //    integer	socketId
@@ -90,7 +90,7 @@ func Connect(socketId int, peerAddress string, peerPort int, callback func(resul
 
 // secure
 //
-// chrome.sockets.tcp.secure(integer socketId, object options, function callback)
+// chrome.sockets.tcp.secure(integer socketId, js.M options, function callback)
 // Since Chrome 38.
 //
 // Start a TLS client connection over the connected TCP client socket.
@@ -99,10 +99,10 @@ func Connect(socketId int, peerAddress string, peerPort int, callback func(resul
 // integer	socketId
 // The existing, connected socket to use.
 //
-// object	(optional) options
+// js.M	(optional) options
 // Constraints and parameters for the TLS connection.
 //
-// object	(optional) tlsVersion
+// js.M	(optional) tlsVersion
 // string	(optional) min
 // The minimum and maximum acceptable versions of TLS. These will be tls1, tls1.1, or tls1.2.
 //
@@ -151,7 +151,7 @@ type SendInfo struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object sendInfo) {...};
-// object	sendInfo
+// js.M	sendInfo
 // Result of the send method.
 //
 // integer	resultCode
@@ -185,7 +185,7 @@ type ReceiveInfo struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object info) {...};
-// object	info
+// js.M	info
 // The event data.
 //
 // integer	socketId
@@ -221,7 +221,7 @@ type ReceiveError struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object info) {...};
-// object	info
+// js.M	info
 // The event data.
 //
 // integer	socketId
@@ -357,7 +357,7 @@ func Close(socketId int) {
 //
 // function( SocketInfo socketInfo) {...};
 // SocketInfo	socketInfo
-// Object containing the socket information.
+// js.M containing the socket information.
 func GetInfo(socketId int, callback func(*sockets.SocketInfo)) {
 	tcp.Call("getInfo", socketId, callback)
 }
@@ -375,7 +375,7 @@ func GetInfo(socketId int, callback func(*sockets.SocketInfo)) {
 //
 // function(array of SocketInfo socketInfos) {...};
 // array of SocketInfo	socketInfos
-// Array of object containing socket information.
+// Array of js.M containing socket information.
 func GetSockets(callback func([]*sockets.SocketInfo)) {
 	tcp.Call("getSockets", callback)
 }

@@ -33,7 +33,7 @@ var (
 // The callback parameter should be a function that looks like this:
 //
 // function(object createInfo) {...};
-// object	 createInfo
+// js.M	 createInfo
 // The result of the socket creation.
 //
 // integer	 socketId
@@ -92,7 +92,7 @@ type AcceptInfo struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object info) {...};
-// object	 info
+// js.M	 info
 // The event data.
 //
 // integer	 socketId
@@ -125,7 +125,7 @@ type AcceptError struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object info) {...};
-// object	 info
+// js.M	 info
 // The event data.
 //
 // integer	 socketId
@@ -185,7 +185,7 @@ func Close(socketId int) {
 //
 // function( SocketInfo socketInfo) {...};
 // SocketInfo	 socketInfo
-// Object containing the socket information.
+// js.M containing the socket information.
 func GetInfo(socketId int, callback func(*sockets.SocketInfo)) {
 	tcp.Call("getInfo", socketId, callback)
 }
@@ -201,7 +201,7 @@ func GetInfo(socketId int, callback func(*sockets.SocketInfo)) {
 //
 // function(array of SocketInfo socketInfos) {...};
 // array of SocketInfo	 socketInfos
-// Array of object containing socket information.
+// Array of js.M containing socket information.
 func GetSockets(callback func([]*sockets.SocketInfo)) {
 	tcp.Call("getSockets", callback)
 }

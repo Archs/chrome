@@ -88,7 +88,7 @@ func getImageUrl(searchTerm string, callback func(imageUrl, width, height string
 	}{}
 	err = json.Unmarshal([]byte(req.Response.String()), &returnFormat)
 	if err != nil {
-		errorCallback("Failed to unmarshal response into object, with Error: " + err.Error() + ". Response was: " + req.Response.String())
+		errorCallback("Failed to unmarshal response into js.M, with Error: " + err.Error() + ". Response was: " + req.Response.String())
 		return
 	}
 	fmt.Println("Got from API: ", returnFormat)

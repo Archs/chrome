@@ -22,7 +22,7 @@ var (
 // The callback parameter should be a function that looks like this:
 //
 // function(object createInfo) {...};
-//    object    createInfo
+//    js.M    createInfo
 //       The result of the socket creation.
 //
 //    integer   socketId
@@ -122,7 +122,7 @@ type SendInfo struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object sendInfo) {...};
-// object  sendInfo
+// js.M  sendInfo
 // Result of the send method.
 //
 // integer resultCode
@@ -159,7 +159,7 @@ type ReceiveInfo struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object info) {...};
-// object  info
+// js.M  info
 // The event data.
 //
 // integer socketId
@@ -201,7 +201,7 @@ type ReceiveError struct {
 // The callback parameter should be a function that looks like this:
 //
 // function(object info) {...};
-// object   info
+// js.M   info
 // The event data.
 //
 // integer  socketId
@@ -393,7 +393,7 @@ func GetJoinedGroups(socketId int, callback func([]string)) {
 //
 // function( SocketInfo socketInfo) {...};
 // SocketInfo   socketInfo
-// Object containing the socket information.
+// js.M containing the socket information.
 func GetInfo(socketId int, callback func(*sockets.SocketInfo)) {
 	udp.Call("getInfo", socketId, callback)
 }
@@ -411,7 +411,7 @@ func GetInfo(socketId int, callback func(*sockets.SocketInfo)) {
 //
 // function(array of SocketInfo socketInfos) {...};
 // array of SocketInfo  socketInfos
-// Array of object containing socket information.
+// Array of js.M containing socket information.
 func GetSockets(callback func([]*sockets.SocketInfo)) {
 	udp.Call("getSockets", callback)
 }
