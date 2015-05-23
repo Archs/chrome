@@ -41,7 +41,21 @@ type MessageSender struct {
 	TlsChannelId string   `js:"tlsChannelId"`
 }
 
-type PlatformInfo map[string]string
+// An object containing information about the current platform.
+type PlatformInfo struct {
+	*js.Object
+	// enum of "mac", "win", "android", "cros", "linux", or "openbsd"	os
+	// The operating system chrome is running on.
+	Os string `js:"os"`
+
+	// enum of "arm", "x86-32", or "x86-64"	arch
+	// The machine's processor architecture.
+	Arch string `js:"arch"`
+
+	// enum of "arm", "x86-32", or "x86-64"	nacl_arch
+	// The native client architecture. This may be different from arch on some platforms.
+	NaclArch string `js:"nacl_arch"`
+}
 
 /*
 * Methods
