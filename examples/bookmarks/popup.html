@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Bookmarks</title>
+</head>
+<body>
+    <ul data-bind="template:{name:'bookmarkTmpl', data:$root}">
+    </ul>
+</body>
+<script id="bookmarkTmpl" type="text/html">
+    <li>
+        <span data-bind="text: Title"></span>
+        <ul data-bind="template: { name: 'bookmarkTmpl', foreach: Children }"></ul>
+    </li>
+    <textarea data-bind="text: out"></textarea>
+</script>
+<script type="text/javascript" src="lib/knockout-3.3.0.min.js"></script>
+<script type="text/javascript" src="lib/knockout-secure-binding.min.js"></script>
+<script type="text/javascript" src="main.js"></script>
+</html>
