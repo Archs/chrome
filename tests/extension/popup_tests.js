@@ -15186,6 +15186,33 @@ $packages["github.com/Archs/chrome/api/history"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
+$packages["github.com/Archs/chrome/api/runtime"] = (function() {
+	var $pkg = {}, $init, chrome, tabs, js, runtime, GetLastError;
+	chrome = $packages["github.com/Archs/chrome"];
+	tabs = $packages["github.com/Archs/chrome/api/tabs"];
+	js = $packages["github.com/gopherjs/gopherjs/js"];
+	GetLastError = function() {
+		var $ptr, msg;
+		msg = runtime.lastError.message;
+		if (msg === undefined) {
+			return "";
+		}
+		return $internalize(msg, $String);
+	};
+	$pkg.GetLastError = GetLastError;
+	$init = function() {
+		$pkg.$init = function() {};
+		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		$r = chrome.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = tabs.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = js.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		runtime = chrome.Get("runtime");
+		$pkg.Id = $internalize(runtime.id, $String);
+		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.$init = $init;
+	return $pkg;
+})();
 $packages["github.com/fabioberger/qunit"] = (function() {
 	var $pkg = {}, $init, js, QUnitAssert, sliceType, funcType, ptrType, funcType$1, log, Test, Module;
 	js = $packages["github.com/gopherjs/gopherjs/js"];
@@ -19909,7 +19936,7 @@ $packages["honnef.co/go/js/dom"] = (function() {
 	return $pkg;
 })();
 $packages["main"] = (function() {
-	var $pkg = {}, $init, fmt, alarms, bookmarks, browserAction, browsingData, cookies, extension, fontSettings, history, tabs, qunit, js, dom, time, sliceType, sliceType$1, doc, _r, main;
+	var $pkg = {}, $init, fmt, alarms, bookmarks, browserAction, browsingData, cookies, extension, fontSettings, history, runtime, tabs, qunit, js, dom, time, sliceType, sliceType$1, doc, _r, main;
 	fmt = $packages["fmt"];
 	alarms = $packages["github.com/Archs/chrome/api/alarms"];
 	bookmarks = $packages["github.com/Archs/chrome/api/bookmarks"];
@@ -19919,6 +19946,7 @@ $packages["main"] = (function() {
 	extension = $packages["github.com/Archs/chrome/api/extension"];
 	fontSettings = $packages["github.com/Archs/chrome/api/fontSettings"];
 	history = $packages["github.com/Archs/chrome/api/history"];
+	runtime = $packages["github.com/Archs/chrome/api/runtime"];
 	tabs = $packages["github.com/Archs/chrome/api/tabs"];
 	qunit = $packages["github.com/fabioberger/qunit"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
@@ -20068,21 +20096,21 @@ $packages["main"] = (function() {
 			id = $parseInt((0 >= tbs.$length ? $throwRuntimeError("index out of range") : tbs.$array[tbs.$offset + 0]).Object.id) >> 0;
 			msg = (_map$9 = new $Map(), _key$9 = "greeting", _map$9[_key$9] = { k: _key$9, v: new $String("hello") }, _map$9);
 			tabs.SendMessage(id, new js.M(msg), (function $b(response) {
-				var $ptr, _r$1, err, response, $s, $r;
-				/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; err = $f.err; response = $f.response; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+				var $ptr, _r$1, msg$1, response, $s, $r;
+				/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; msg$1 = $f.msg$1; response = $f.response; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 				response = [response];
-				err = $global.chrome.runtime.lastError;
-				/* */ if (!($internalize(err, $String) === "undefined")) { $s = 1; continue; }
+				msg$1 = runtime.GetLastError();
+				/* */ if (!(msg$1 === "")) { $s = 1; continue; }
 				/* */ $s = 2; continue;
-				/* if (!($internalize(err, $String) === "undefined")) { */ case 1:
-					_r$1 = fmt.Println(new sliceType$1([new $String("Tabs.SendMessage Error: "), new $String($internalize(err.message, $String))])); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+				/* if (!(msg$1 === "")) { */ case 1:
+					_r$1 = fmt.Println(new sliceType$1([new $String("Tabs.SendMessage Error: "), new $String(msg$1)])); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 					_r$1;
 				/* } */ case 2:
 				qunit.Test("Tabs.SendMessage() & Runtime.OnMessage() Event", (function(response) { return function(assert) {
 					var $ptr, _entry, assert;
 					assert.Equal((_entry = response[0]["farewell"], _entry !== undefined ? _entry.v : $ifaceNil), new $String("goodbye"), "SendMessage");
 				}; })(response));
-				/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.err = err; $f.response = response; $f.$s = $s; $f.$r = $r; return $f;
+				/* */ $s = -1; case -1: } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.msg$1 = msg$1; $f.response = response; $f.$s = $s; $f.$r = $r; return $f;
 			}));
 		}));
 	};
@@ -20098,12 +20126,13 @@ $packages["main"] = (function() {
 		$r = extension.$init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = fontSettings.$init(); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = history.$init(); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = tabs.$init(); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = qunit.$init(); /* */ $s = 11; case 11: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = js.$init(); /* */ $s = 12; case 12: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = dom.$init(); /* */ $s = 13; case 13: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = time.$init(); /* */ $s = 14; case 14: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		_r = dom.GetWindow().Document(); /* */ $s = 15; case 15: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$r = runtime.$init(); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = tabs.$init(); /* */ $s = 11; case 11: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = qunit.$init(); /* */ $s = 12; case 12: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = js.$init(); /* */ $s = 13; case 13: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = dom.$init(); /* */ $s = 14; case 14: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = time.$init(); /* */ $s = 15; case 15: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		_r = dom.GetWindow().Document(); /* */ $s = 16; case 16: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		doc = _r;
 		main();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;

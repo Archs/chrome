@@ -10,6 +10,7 @@ import (
 	"github.com/Archs/chrome/api/extension"
 	"github.com/Archs/chrome/api/fontSettings"
 	"github.com/Archs/chrome/api/history"
+	"github.com/Archs/chrome/api/runtime"
 	"github.com/Archs/chrome/api/tabs"
 	"time"
 
@@ -212,9 +213,9 @@ func main() {
 		// Send Message to the given Tab & have Event Listener on Tab Respond
 		msg := js.M{"greeting": "hello"}
 		tabs.SendMessage(id, msg, func(response js.M) {
-			err := js.Global.Get("chrome").Get("runtime").Get("lastError")
-			if err.String() != "undefined" {
-				fmt.Println("Tabs.SendMessage Error: ", err.Get("message").String())
+			msg := runtime.GetLastError()
+			if msg != "" {
+				fmt.Println("Tabs.SendMessage Error: ", msg)
 			}
 			QUnit.Test("Tabs.SendMessage() & Runtime.OnMessage() Event", func(assert QUnit.QUnitAssert) {
 				assert.Equal(response["farewell"], "goodbye", "SendMessage")
