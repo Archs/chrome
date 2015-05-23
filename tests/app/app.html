@@ -5,6 +5,11 @@
     <link rel="stylesheet" href="resources/qunit-1.14.0.css">
 </head>
 <body>
+    <h4>First instance, without parameters</h4>
+    <message-editor></message-editor>
+     
+    <h4>Second instance, passing parameters</h4>
+    <message-editor params='text: "Hello, world!", intValue: 1+200'></message-editor>
     <div>
        <label>IP</label><input data-bind="value: ip">    
        <label>Port</label><input data-bind="value: port">    

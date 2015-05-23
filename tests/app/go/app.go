@@ -30,7 +30,28 @@ func appendToOut(msg string) {
 	println(msg)
 }
 
+func testComponent() {
+	ko.Components().Register("message-editor", js.M{
+		"viewModel": js.MakeFunc(func(this *js.Object, arguments []*js.Object) interface{} {
+			params := arguments[0]
+			if params.Get("text") == js.Undefined {
+				params.Set("text", "default value")
+				params.Set("intValue", 100)
+			}
+			text := ko.NewObservable(params.Get("text").String())
+			intv := ko.NewObservable(params.Get("intValue").Int())
+			this.Set("text", text)
+			this.Set("intv", intv)
+			return js.Undefined
+		}),
+		"template": `Message: <input data-bind="textInput: text" />
+                    (length: <span data-bind="text: text().length"></span>|
+                    	<span data-bind="text: intv"></span>)`,
+	})
+}
+
 func applyBindings() {
+	testComponent()
 	model := js.M{
 		"ip":     ip,
 		"port":   port,
