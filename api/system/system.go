@@ -1,6 +1,10 @@
 package system
 
-import "github.com/gopherjs/gopherjs/js"
+import (
+	"github.com/Archs/chrome"
+
+	"github.com/gopherjs/gopherjs/js"
+)
 
 type System struct {
 	o       *js.Object
@@ -9,8 +13,9 @@ type System struct {
 	Storage *SysStorage
 }
 
-func NewSystem(systemObj *js.Object) *System {
+func New() *System {
 	s := new(System)
+	systemObj := chrome.Get("system")
 	s.o = systemObj
 	if systemObj.String() != "undefined" {
 		s.Cpu = &Cpu{o: systemObj.Get("cpu")}
