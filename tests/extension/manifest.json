@@ -10,29 +10,30 @@
     "default_popup": "popup.html",
     "default_title": "Tests"
   },
-  "content_scripts": [
-    {
-      "matches": ["http://*/*"],
-      "js": ["content_scripts_tests.js"]
-    }
-  ],
+
+  "content_scripts": [{
+    "matches": ["http://*/*"],
+    "js": ["content_scripts_tests.js"]
+  }],
+
   "permissions": [
-  "webNavigation",
-  "storage",
-  "tabs",
-  "privacy",
-  "cookies",
-  "http://*/*",
-  "contentSettings",
-  "alarms",
-  "activeTab",
-  "tabs",
-  "bookmarks",
-  "browsingData",
-  "fontSettings",
-  "history"
+    "webNavigation",
+    "storage",
+    "tabs",
+    "privacy",
+    "cookies",
+    "http://*/*",
+    "contentSettings",
+    "alarms",
+    "activeTab",
+    "tabs",
+    "bookmarks",
+    "browsingData",
+    "fontSettings",
+    "history"
   ],
-   "web_accessible_resources": [
-   	"*"
-   ]
+
+  "web_accessible_resources": [
+    "*"
+  ]
 }
