@@ -8,7 +8,8 @@ import (
 
 var (
 	runtime = chrome.Get("runtime")
-	// chrome.runtime.id	The ID of the extension/app.
+	// chrome.runtime.id
+	// The ID of the extension/app.
 	Id = runtime.Get("id").String()
 )
 
@@ -24,17 +25,36 @@ func GetLastError() string {
 * Types
  */
 
+// An object which allows two way communication with other pages.
 type Port struct {
 	*js.Object
 	Name         string        `js:"name"`
-	OnDisconnect js.Object     `js:"onDisconnect"`
-	OnMessage    js.Object     `js:"onMessage"`
+	onDisconnect *js.Object    `js:"onDisconnect"`
+	onMessage    *js.Object    `js:"onMessage"`
+	disconnect   *js.Object    `js:"disconnect"`
+	postMessage  *js.Object    `js:"postMessage"`
 	Sender       MessageSender `js:"sender"`
+}
+
+func (p *Port) PostMessage(message interface{}) {
+	p.postMessage.Invoke(message)
+}
+
+func (p *Port) OnMessage(callback func(message interface{}, sender MessageSender, sendResponse func(interface{}))) {
+	p.onMessage.Call("addListener", callback)
+}
+
+func (p *Port) OnDisconnect(callback func()) {
+	p.onDisconnect.Call("addListener", callback)
+}
+
+func (p *Port) Disconnect() {
+	p.disconnect.Invoke()
 }
 
 type MessageSender struct {
 	*js.Object
-	tab          tabs.Tab `js:"tab"`
+	Tab          tabs.Tab `js:"tab"`
 	FrameId      int      `js:"frameId"`
 	Id           string   `js:"id"`
 	Url          string   `js:"url"`
@@ -86,14 +106,14 @@ func Restart() {
 	runtime.Call("restart")
 }
 
-func Connect(extensionId string, connectInfo interface{}) Port {
+func Connect(extensionId string, connectInfo interface{}) *Port {
 	portObj := runtime.Call("connect", extensionId, connectInfo)
-	return Port{Object: portObj}
+	return &Port{Object: portObj}
 }
 
-func ConnectNative(application string) Port {
+func ConnectNative(application string) *Port {
 	portObj := runtime.Call("connectNative", application)
-	return Port{Object: portObj}
+	return &Port{Object: portObj}
 }
 
 func SendMessage(extensionId string, message interface{}, options interface{}, responseCallback func(response interface{})) {
