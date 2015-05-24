@@ -9,12 +9,12 @@
 </head>
 <body>
 	<span data-bind="text: Title"></span>
-	<button data-bind="click: Bookmark.Show">Show</button>
-    <ul data-bind="template:{name:'bookmarkTmpl', data:Bookmark.Root}"></ul>
+	<button data-bind="click: Bookmark.Test">Test</button>
     <textarea data-bind="value: Bookmark.TextArea"></textarea>
+    <ul data-bind="template:{name:'bookmarkTmpl', data:Bookmark.Root}"></ul>
 </body>
 <script id="bookmarkTmpl" type="text/html">
-    <li>
+    <li data-bind="click: $root.Bookmark.Show">
         <span data-bind="text: title"></span>
         <ul data-bind="template: { name: 'bookmarkTmpl', foreach: children }"></ul>
     </li>

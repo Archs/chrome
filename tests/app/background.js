@@ -2246,20 +2246,85 @@ $packages["github.com/Archs/chrome/api/app/runtime"] = (function() {
 	return $pkg;
 })();
 $packages["github.com/Archs/chrome/api/app/window"] = (function() {
-	var $pkg = {}, $init, chrome, js, AppWindow, ptrType, funcType, ptrType$1, window, CreateM;
+	var $pkg = {}, $init, chrome, js, AppWindow, BoundsSpecification, Bounds, ptrType, funcType, ptrType$1, ptrType$2, window, CreateM;
 	chrome = $packages["github.com/Archs/chrome"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
-	AppWindow = $pkg.AppWindow = $newType(0, $kindStruct, "window.AppWindow", "AppWindow", "github.com/Archs/chrome/api/app/window", function(o_) {
+	AppWindow = $pkg.AppWindow = $newType(0, $kindStruct, "window.AppWindow", "AppWindow", "github.com/Archs/chrome/api/app/window", function(Object_, ContentWindow_, Id_, InnerBounds_, OuterBounds_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.o = null;
+			this.Object = null;
+			this.ContentWindow = null;
+			this.Id = "";
+			this.InnerBounds = ptrType$1.nil;
+			this.OuterBounds = ptrType$1.nil;
 			return;
 		}
-		this.o = o_;
+		this.Object = Object_;
+		this.ContentWindow = ContentWindow_;
+		this.Id = Id_;
+		this.InnerBounds = InnerBounds_;
+		this.OuterBounds = OuterBounds_;
+	});
+	BoundsSpecification = $pkg.BoundsSpecification = $newType(0, $kindStruct, "window.BoundsSpecification", "BoundsSpecification", "github.com/Archs/chrome/api/app/window", function(Object_, Left_, Top_, Width_, Height_, MinWidth_, MinHeigth_, MaxWidth_, MaxHeigth_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.Object = null;
+			this.Left = 0;
+			this.Top = 0;
+			this.Width = 0;
+			this.Height = 0;
+			this.MinWidth = 0;
+			this.MinHeigth = 0;
+			this.MaxWidth = 0;
+			this.MaxHeigth = 0;
+			return;
+		}
+		this.Object = Object_;
+		this.Left = Left_;
+		this.Top = Top_;
+		this.Width = Width_;
+		this.Height = Height_;
+		this.MinWidth = MinWidth_;
+		this.MinHeigth = MinHeigth_;
+		this.MaxWidth = MaxWidth_;
+		this.MaxHeigth = MaxHeigth_;
+	});
+	Bounds = $pkg.Bounds = $newType(0, $kindStruct, "window.Bounds", "Bounds", "github.com/Archs/chrome/api/app/window", function(BoundsSpecification_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.BoundsSpecification = new BoundsSpecification.ptr();
+			return;
+		}
+		this.BoundsSpecification = BoundsSpecification_;
 	});
 	ptrType = $ptrType(AppWindow);
 	funcType = $funcType([ptrType], [], false);
-	ptrType$1 = $ptrType(js.Object);
+	ptrType$1 = $ptrType(Bounds);
+	ptrType$2 = $ptrType(js.Object);
+	Bounds.ptr.prototype.SetPosition = function(left, top) {
+		var $ptr, b, left, top;
+		b = this;
+		b.BoundsSpecification.Object.setPosition(left, top);
+	};
+	Bounds.prototype.SetPosition = function(left, top) { return this.$val.SetPosition(left, top); };
+	Bounds.ptr.prototype.SetSize = function(width, height) {
+		var $ptr, b, height, width;
+		b = this;
+		b.BoundsSpecification.Object.setSize(width, height);
+	};
+	Bounds.prototype.SetSize = function(width, height) { return this.$val.SetSize(width, height); };
+	Bounds.ptr.prototype.SetMinimumSize = function(minWidth, minHeight) {
+		var $ptr, b, minHeight, minWidth;
+		b = this;
+		b.BoundsSpecification.Object.setMinimumSize(minWidth, minHeight);
+	};
+	Bounds.prototype.SetMinimumSize = function(minWidth, minHeight) { return this.$val.SetMinimumSize(minWidth, minHeight); };
+	Bounds.ptr.prototype.SetMaximumSize = function(minWidth, minHeight) {
+		var $ptr, b, minHeight, minWidth;
+		b = this;
+		b.BoundsSpecification.Object.setMaximumSize(minWidth, minHeight);
+	};
+	Bounds.prototype.SetMaximumSize = function(minWidth, minHeight) { return this.$val.SetMaximumSize(minWidth, minHeight); };
 	CreateM = function(url, options, callback) {
 		var $ptr, callback, options, url;
 		window.create($externalize(url, $String), $externalize(options, js.M), $externalize(callback, funcType));
@@ -2268,35 +2333,110 @@ $packages["github.com/Archs/chrome/api/app/window"] = (function() {
 	AppWindow.ptr.prototype.Focus = function() {
 		var $ptr, a;
 		a = this;
-		a.o.focus();
+		a.Object.focus();
 	};
 	AppWindow.prototype.Focus = function() { return this.$val.Focus(); };
 	AppWindow.ptr.prototype.Fullscreen = function() {
 		var $ptr, a;
 		a = this;
-		a.o.fullscreen();
+		a.Object.fullscreen();
 	};
 	AppWindow.prototype.Fullscreen = function() { return this.$val.Fullscreen(); };
+	AppWindow.ptr.prototype.IsFullscreen = function() {
+		var $ptr, a;
+		a = this;
+		return !!(a.Object.fullscreen());
+	};
+	AppWindow.prototype.IsFullscreen = function() { return this.$val.IsFullscreen(); };
+	AppWindow.ptr.prototype.Minimize = function() {
+		var $ptr, a;
+		a = this;
+		a.Object.minimize();
+	};
+	AppWindow.prototype.Minimize = function() { return this.$val.Minimize(); };
+	AppWindow.ptr.prototype.IsMinimized = function() {
+		var $ptr, a;
+		a = this;
+		return !!(a.Object.isMinimized());
+	};
+	AppWindow.prototype.IsMinimized = function() { return this.$val.IsMinimized(); };
+	AppWindow.ptr.prototype.Maximize = function() {
+		var $ptr, a;
+		a = this;
+		a.Object.maximize();
+	};
+	AppWindow.prototype.Maximize = function() { return this.$val.Maximize(); };
+	AppWindow.ptr.prototype.IsMaximized = function() {
+		var $ptr, a;
+		a = this;
+		return !!(a.Object.isMaximized());
+	};
+	AppWindow.prototype.IsMaximized = function() { return this.$val.IsMaximized(); };
+	AppWindow.ptr.prototype.Restore = function() {
+		var $ptr, a;
+		a = this;
+		a.Object.restore();
+	};
+	AppWindow.prototype.Restore = function() { return this.$val.Restore(); };
+	AppWindow.ptr.prototype.DrawAttention = function() {
+		var $ptr, a;
+		a = this;
+		a.Object.drawAttention();
+	};
+	AppWindow.prototype.DrawAttention = function() { return this.$val.DrawAttention(); };
+	AppWindow.ptr.prototype.ClearAttention = function() {
+		var $ptr, a;
+		a = this;
+		a.Object.clearAttention();
+	};
+	AppWindow.prototype.ClearAttention = function() { return this.$val.ClearAttention(); };
 	AppWindow.ptr.prototype.Close = function() {
 		var $ptr, a;
 		a = this;
-		a.o.close();
+		a.Object.close();
 	};
 	AppWindow.prototype.Close = function() { return this.$val.Close(); };
 	AppWindow.ptr.prototype.Show = function(focused) {
 		var $ptr, a, focused;
 		a = this;
-		a.o.show($externalize(focused, $Bool));
+		a.Object.show($externalize(focused, $Bool));
 	};
 	AppWindow.prototype.Show = function(focused) { return this.$val.Show(focused); };
 	AppWindow.ptr.prototype.Hide = function() {
 		var $ptr, a;
 		a = this;
-		a.o.hide();
+		a.Object.hide();
 	};
 	AppWindow.prototype.Hide = function() { return this.$val.Hide(); };
-	ptrType.methods = [{prop: "Focus", name: "Focus", pkg: "", typ: $funcType([], [], false)}, {prop: "Fullscreen", name: "Fullscreen", pkg: "", typ: $funcType([], [], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [], false)}, {prop: "Show", name: "Show", pkg: "", typ: $funcType([$Bool], [], false)}, {prop: "Hide", name: "Hide", pkg: "", typ: $funcType([], [], false)}];
-	AppWindow.init([{prop: "o", name: "o", pkg: "github.com/Archs/chrome/api/app/window", typ: ptrType$1, tag: ""}]);
+	AppWindow.ptr.prototype.IsAlwaysOnTop = function() {
+		var $ptr, a;
+		a = this;
+		return !!(a.Object.isAlwaysOnTop());
+	};
+	AppWindow.prototype.IsAlwaysOnTop = function() { return this.$val.IsAlwaysOnTop(); };
+	AppWindow.ptr.prototype.SetAlwaysOnTop = function(alwaysOnTop) {
+		var $ptr, a, alwaysOnTop;
+		a = this;
+		a.Object.alwaysOnTop($externalize(alwaysOnTop, $Bool));
+	};
+	AppWindow.prototype.SetAlwaysOnTop = function(alwaysOnTop) { return this.$val.SetAlwaysOnTop(alwaysOnTop); };
+	AppWindow.ptr.prototype.SetVisibleOnAllWorkspaces = function(alwaysVisible) {
+		var $ptr, a, alwaysVisible;
+		a = this;
+		a.Object.setVisibleOnAllWorkspaces($externalize(alwaysVisible, $Bool));
+	};
+	AppWindow.prototype.SetVisibleOnAllWorkspaces = function(alwaysVisible) { return this.$val.SetVisibleOnAllWorkspaces(alwaysVisible); };
+	AppWindow.ptr.prototype.SetInterceptAllKeys = function(wantAllKeys) {
+		var $ptr, a, wantAllKeys;
+		a = this;
+		a.Object.setInterceptAllKeys($externalize(wantAllKeys, $Bool));
+	};
+	AppWindow.prototype.SetInterceptAllKeys = function(wantAllKeys) { return this.$val.SetInterceptAllKeys(wantAllKeys); };
+	ptrType.methods = [{prop: "Focus", name: "Focus", pkg: "", typ: $funcType([], [], false)}, {prop: "Fullscreen", name: "Fullscreen", pkg: "", typ: $funcType([], [], false)}, {prop: "IsFullscreen", name: "IsFullscreen", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Minimize", name: "Minimize", pkg: "", typ: $funcType([], [], false)}, {prop: "IsMinimized", name: "IsMinimized", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Maximize", name: "Maximize", pkg: "", typ: $funcType([], [], false)}, {prop: "IsMaximized", name: "IsMaximized", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Restore", name: "Restore", pkg: "", typ: $funcType([], [], false)}, {prop: "DrawAttention", name: "DrawAttention", pkg: "", typ: $funcType([], [], false)}, {prop: "ClearAttention", name: "ClearAttention", pkg: "", typ: $funcType([], [], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [], false)}, {prop: "Show", name: "Show", pkg: "", typ: $funcType([$Bool], [], false)}, {prop: "Hide", name: "Hide", pkg: "", typ: $funcType([], [], false)}, {prop: "IsAlwaysOnTop", name: "IsAlwaysOnTop", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "SetAlwaysOnTop", name: "SetAlwaysOnTop", pkg: "", typ: $funcType([$Bool], [], false)}, {prop: "SetVisibleOnAllWorkspaces", name: "SetVisibleOnAllWorkspaces", pkg: "", typ: $funcType([$Bool], [], false)}, {prop: "SetInterceptAllKeys", name: "SetInterceptAllKeys", pkg: "", typ: $funcType([$Bool], [], false)}];
+	ptrType$1.methods = [{prop: "SetPosition", name: "SetPosition", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "SetSize", name: "SetSize", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "SetMinimumSize", name: "SetMinimumSize", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "SetMaximumSize", name: "SetMaximumSize", pkg: "", typ: $funcType([$Int, $Int], [], false)}];
+	AppWindow.init([{prop: "Object", name: "", pkg: "", typ: ptrType$2, tag: ""}, {prop: "ContentWindow", name: "ContentWindow", pkg: "", typ: ptrType$2, tag: "js:\"contentWindow\""}, {prop: "Id", name: "Id", pkg: "", typ: $String, tag: "js:\"id\""}, {prop: "InnerBounds", name: "InnerBounds", pkg: "", typ: ptrType$1, tag: "js:\"innerBounds\""}, {prop: "OuterBounds", name: "OuterBounds", pkg: "", typ: ptrType$1, tag: "js:\"outerBounds\""}]);
+	BoundsSpecification.init([{prop: "Object", name: "", pkg: "", typ: ptrType$2, tag: ""}, {prop: "Left", name: "Left", pkg: "", typ: $Int, tag: "js:\"left\""}, {prop: "Top", name: "Top", pkg: "", typ: $Int, tag: "js:\"top\""}, {prop: "Width", name: "Width", pkg: "", typ: $Int, tag: "js:\"width\""}, {prop: "Height", name: "Height", pkg: "", typ: $Int, tag: "js:\"height\""}, {prop: "MinWidth", name: "MinWidth", pkg: "", typ: $Int, tag: "js:\"minWidth\""}, {prop: "MinHeigth", name: "MinHeigth", pkg: "", typ: $Int, tag: "js:\"minHeight\""}, {prop: "MaxWidth", name: "MaxWidth", pkg: "", typ: $Int, tag: "js:\"maxWidth\""}, {prop: "MaxHeigth", name: "MaxHeigth", pkg: "", typ: $Int, tag: "js:\"maxHeight\""}]);
+	Bounds.init([{prop: "BoundsSpecification", name: "", pkg: "", typ: BoundsSpecification, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
