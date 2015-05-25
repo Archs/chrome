@@ -1,12 +1,12 @@
 {
-  "name": "My Bookmarks",
+  "name": "Progress  Bar",
   "version": "1.1",
-  "description": "A browser action with a popup dump of all bookmarks, including search, add, edit and delete.",
+  "description": "A browser test action.",
   "permissions": [
     "bookmarks"
   ],
   "browser_action": {
-    "default_title": "My Bookmarks",
+    "default_title": "Progress  Bar",
     "default_icon": "icon.png",
     "default_popup": "progressbar.html"
   },
