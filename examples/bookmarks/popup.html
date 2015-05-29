@@ -17,8 +17,7 @@
 <script id="bookmarkTmpl" type="text/html">
     <li data-bind="click: $root.Bookmark.Toggle, clickBubble:false">
         <div>
-            <a data-bind="attr: {href: url, title: title}, text:title"></a>
-            <button data-bind="click: $root.Bookmark.Goto, visible: url">Goto</button>
+            <a data-bind="attr: {href: url, title: title}, text:title, click: $root.Bookmark.Goto, clickBubble:true"></a>
             <section class="children" data-bind="visible:children">
                 <ul data-bind="template: {name: 'bookmarkTmpl', foreach: children}"></ul>
             </section>

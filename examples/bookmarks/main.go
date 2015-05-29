@@ -73,6 +73,9 @@ func newBkmkCtrl() *BookmarkController {
 	}
 	b.Goto = func(vm *ko.ViewModel) {
 		url := vm.Get("url").String()
+		if url == "undefined" {
+			return
+		}
 		tabs.Create(js.M{"url": url}, func(t tabs.Tab) {
 			println(t)
 		})
