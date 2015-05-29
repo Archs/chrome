@@ -16,9 +16,11 @@
 
 <script id="bookmarkTmpl" type="text/html">
     <li data-bind="click: $root.Bookmark.Toggle">
-        <span data-bind="text: title"></span>
-        <button data-bind="click: $root.Bookmark.Goto, visible: url">Goto</button>
-        <button data-bind="click: $root.Bookmark.Edit">Edit</button>
-        <ul data-bind="template: { name: 'bookmarkTmpl', foreach: children}"></ul>
+        <section>
+            <a data-bind="attr: {href: url, title: title}, text:title"></a>
+            <button data-bind="click: $root.Bookmark.Goto, visible: url">Goto</button>
+            <button data-bind="click: $root.Bookmark.Edit">Edit</button>
+            <ul data-bind="template: {name: 'bookmarkTmpl', foreach: children}"></ul>
+        </section>
     </li>
 </script>
